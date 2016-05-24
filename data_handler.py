@@ -89,7 +89,7 @@ class data_handler(object):
         return T, mu, x, y
 
 if __name__ == "__main__":
-    data = data_handler("/home/shashank/Research/SIEL/trust-aware-recom/data/Adbigato/advogato-graph-2000-02-25.dot",5)
+    data = data_handler("../data/advogato-graph-2000-02-25.dot",5)
     t = time.time()
     T, mu, x, y = data.load_data()
     print "Time for pre-processing is %f"%(time.time() - t)
