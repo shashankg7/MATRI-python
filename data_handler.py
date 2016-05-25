@@ -33,27 +33,24 @@ class data_handler(object):
         R = R.T
         zij = []
 
-        X = np.dot(R.T, L)
+        RtL = np.dot(R.T, L)
         for step in xrange(2, t+1):
-            temp = self.mat_pow(X, step-1)
+            temp = self.mat_pow(RtL, step-1)
             zij.append(np.dot(np.dot(self.a2v(L[i,:]), temp), self.a2v(R[j,:]).T))
 
-        X = np.dot(L.T, R)
+        LtR = np.dot(L.T, R)
         for step in xrange(1, t+1):
-            temp = self.mat_pow(X, step-1)
+            temp = self.mat_pow(LtR, step-1)
             zij.append(np.dot(np.dot(self.a2v(R[i,:]), temp), self.a2v(L[j,:]).T))
 
-        X1 = np.dot(L.T, L)
+        LtL = np.dot(L.T, L)
+        RtR = np.dot(R.T, R)
         for step in xrange(1, t+1):
-            X = np.dot(X1, np.dot(R.T, R))
-            temp = self.mat_pow(X, step-1)
-            zij.append(np.dot(np.dot(self.a2v(R[i,:]), temp), np.dot(X1, self.a2v(R[j, :]).T)))
-
-        X1 = np.dot(R.T, R)
+            temp = self.mat_pow(np.dot(LtL, RtR), step-1)
+            zij.append(np.dot(np.dot(self.a2v(R[i,:]), temp), np.dot(LtL, self.a2v(R[j, :]).T)))
         for step in xrange(1, t+1):
-            X = np.dot(X1, np.dot(L.T, L))
-            temp = self.mat_pow(X, step-1)
-            zij.append(np.dot(np.dot(self.a2v(L[i,:]), temp), np.dot(X1, self.a2v(L[j, :]).T)))
+            temp = self.mat_pow(np.dot(RtR, LtL), step-1)
+            zij.append(np.dot(np.dot(self.a2v(L[i,:]), temp), np.dot(RtR, self.a2v(L[j, :]).T)))
 
         return np.asarray(zij).reshape(1, 4*t -1)
 
@@ -88,7 +85,7 @@ class data_handler(object):
             y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
             y[i] -= mu
         dp = np.linalg.matrix_power(T, self.t)
-        t = self.compute_prop(T, 10, 50, 10, 10)
+        #t = self.compute_prop(T, 10, 50, 10, 10)
         #pdb.set_trace()
         return T, mu, x, y, k
 

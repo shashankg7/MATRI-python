@@ -1,4 +1,3 @@
-
 import numpy as np
 from numpy.linalg import norm
 import pdb
@@ -7,17 +6,21 @@ from sklearn.decomposition import NMF
 from numpy import power
 import time
 from data_handler import data_handler
-
+import sys
 
 class MATRI(object):
     def __init__(self, t, r, l):
+        print "Initializing MATRI..."
         self.max_iter = 1000
         self.t = t
         self.r = r
         self.l = l
         self.T, self.mu, self.x, self.y, self.k  = data.load_data()
-        self.Z = np.zeros(self.T.shape)
+        self.Z = np.zeros(self.T.shape + (1, 4*self.t-1))
+        print "Precomputing Zij...."
         for i,j in self.k:
+            sys.stdout.write(".")
+            sys.stdout.flush()
             self.Z[i, j] = data.compute_prop(self.T, self.t, self.l, i, j)
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * t - 1))
@@ -57,6 +60,7 @@ class MATRI(object):
 
 
     def startMatri(self):
+        print ">> starting MATRI"
         P = np.zeros(self.T.shape)
         iter = 1
         while not self.converge(iter):
