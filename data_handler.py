@@ -58,11 +58,12 @@ class data_handler(object):
         return np.asarray(zij).reshape(1, 4*t -1)
 
     def load_data(self):
-        graph = nx.Graph(nx.read_dot(self.path))
+        graph = nx.Graph(nx.drawing.nx_pydot.read_dot(self.path))
         nodes = graph.node.keys()
         edges = graph.edge
         num_nodes = len(nodes)
         num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
+        print "Nodes:",num_nodes, ", Edges:",num_edges
         node_to_index = dict(zip(nodes, range(len(nodes))))
         #rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
         #              '"Master"':0.9}
@@ -70,10 +71,13 @@ class data_handler(object):
                       'Master':0.9}
 
         T = np.zeros((num_nodes, num_nodes))
+        k = []
         for i, node in enumerate(nodes):
             edge_list = edges[node]
             for user in edge_list:
                 T[i][node_to_index[user]] = rating_map[edge_list[user]['level']]
+                k.append((i,node_to_index[user]))
+
         mu = np.sum(T)
         mu /= len(T[np.where(T > 0)])
         x = np.zeros(num_nodes)
@@ -84,13 +88,13 @@ class data_handler(object):
             y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
             y[i] -= mu
         dp = np.linalg.matrix_power(T, self.t)
-        t = self.compute_prop(T, 10, 50, 10,10)
-        pdb.set_trace()
-        return T, mu, x, y
+        t = self.compute_prop(T, 10, 50, 10, 10)
+        #pdb.set_trace()
+        return T, mu, x, y, k
 
 if __name__ == "__main__":
-    data = data_handler("../data/advogato-graph-2000-02-25.dot",5)
+    data = data_handler("data/advogato-graph-2000-02-25.dot",5)
     t = time.time()
-    T, mu, x, y = data.load_data()
+    T, mu, x, y, k = data.load_data()
     print "Time for pre-processing is %f"%(time.time() - t)
-    pdb.set_trace()
+    #pdb.set_trace()
