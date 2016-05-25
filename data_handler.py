@@ -61,16 +61,16 @@ class data_handler(object):
         graph = nx.Graph(nx.drawing.nx_pydot.read_dot(self.path))
         nodes = graph.node.keys()
         edges = graph.edge
-        num_nodes = len(nodes)
-        num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
-        print "Nodes:",num_nodes, ", Edges:",num_edges
+        self.num_nodes = len(nodes)
+        self.num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
+        print "Nodes:",self.num_nodes, ", Edges:",self.num_edges
         node_to_index = dict(zip(nodes, range(len(nodes))))
         #rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
         #              '"Master"':0.9}
         rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
                       'Master':0.9}
 
-        T = np.zeros((num_nodes, num_nodes))
+        T = np.zeros((self.num_nodes, self.num_nodes))
         k = []
         for i, node in enumerate(nodes):
             edge_list = edges[node]
@@ -80,9 +80,9 @@ class data_handler(object):
 
         mu = np.sum(T)
         mu /= len(T[np.where(T > 0)])
-        x = np.zeros(num_nodes)
-        y = np.zeros(num_nodes)
-        for i in xrange(0, num_nodes):
+        x = np.zeros(self.num_nodes)
+        y = np.zeros(self.num_nodes)
+        for i in xrange(0, self.num_nodes):
             x[i] = np.sum(T[i, :]) / len(T[i, np.where(T[i,:] > 0)])
             x[i] -= mu
             y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
