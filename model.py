@@ -60,12 +60,14 @@ class MATRI(object):
 
 
     def startMatri(self):
+        """ Start the main MATRI algorithm """
         print ">> starting MATRI"
         P = np.zeros(self.T.shape)
         iter = 1
         while not self.converge(iter):
             for i,j in self.k:
-                P[i, j] = T[i, j] - (np.dot(self.alpha.T, np.asarray([self.mu, self.x[i], self.y[j]]).T) + np.dot(beta.T, self.Z[i,j]))
+                P[i, j] = T[i, j] - (np.dot(self.alpha.T, np.asarray([self.mu, self.x[i], self.y[j]]).T) \
+                            + np.dot(beta.T, self.Z[i,j]))
 
             self.F, self.G = data.mat_fact(P, self.r)
             for i,j in self.k:
@@ -73,12 +75,23 @@ class MATRI(object):
 
             self.alpha, self.beta = self.updateCoeff(P)
             iter += 1
+        self.calcTrust()
+
+
+    def calcTrust(self):
+        """ Calculate final trust of the from u to v """
+        u = input("Enter u: ")
+        v = input("Enter v: ")
+        T = np.dot(self.F[:,], self.G[v,:].T) + np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))  \
+             + np.dot(self.beta.T,self.Z[u,v])
+        print "Trust:", T
+
 
 
 if __name__ == "__main__":
-    t = 5
-    r = 1000
-    l = 1000
+    t = 6
+    r = 10
+    l = 10
     data = data_handler("data/advogato-graph-2000-02-25.dot", t)
     m = MATRI(t, r, l)
     m.startMatri()

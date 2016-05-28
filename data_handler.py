@@ -6,7 +6,7 @@ import numpy as np
 import pdb
 from sklearn.decomposition import NMF
 from numpy import power
-import time
+from datetime import datetime
 
 class data_handler(object):
     def __init__(self, path, t):
@@ -91,7 +91,8 @@ class data_handler(object):
 
 if __name__ == "__main__":
     data = data_handler("data/advogato-graph-2000-02-25.dot",5)
-    t = time.time()
+    t = datetime.now()
     T, mu, x, y, k = data.load_data()
-    print "Time for pre-processing is %f"%(time.time() - t)
+    t = (datetime.now() - t).total_seconds()
+    print "Time for pre-processing is %fs"%(t)
     #pdb.set_trace()
