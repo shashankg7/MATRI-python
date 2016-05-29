@@ -7,6 +7,7 @@ import pdb
 from sklearn.decomposition import NMF
 from numpy import power
 from datetime import datetime
+import numpy
 
 class data_handler(object):
     def __init__(self, path, t):
@@ -19,6 +20,34 @@ class data_handler(object):
         L = model.fit_transform(X)
         R = model.components_
         return L, R
+
+    def mat_fact1(self, R, K):
+        N = R.shape[0]
+        P = np.random.rand(N, K)
+        Q = np.random.rand(N, K)
+        Q = Q.T
+        steps = 5000
+        alpha = 0.0002
+        beta = 0.02
+        for step in xrange(steps):
+            for i in xrange(len(R)):
+                for j in xrange(len(R[i])):
+                    if R[i][j] > 0:
+                        eij = R[i][j] - numpy.dot(P[i,:],Q[:,j])
+                        for k in xrange(K):
+                            P[i][k] = P[i][k] + alpha * (2 * eij * Q[k][j] - beta * P[i][k])
+                            Q[k][j] = Q[k][j] + alpha * (2 * eij * P[i][k] - beta * Q[k][j])
+            eR = numpy.dot(P,Q)
+            e = 0
+            for i in xrange(len(R)):
+                for j in xrange(len(R[i])):
+                    if R[i][j] > 0:
+                        e = e + pow(R[i][j] - numpy.dot(P[i,:],Q[:,j]), 2)
+                        for k in xrange(K):
+                            e = e + (beta/2) * ( pow(P[i][k],2) + pow(Q[k][j],2) )
+            if e < 0.001:
+                break
+        return P, Q
 
     def mat_pow(self, X, i):
         return power(X, i)

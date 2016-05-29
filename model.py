@@ -66,12 +66,15 @@ class MATRI(object):
         iter = 1
         while not self.converge(iter):
             for i,j in self.k:
-                P[i, j] = T[i, j] - (np.dot(self.alpha.T, np.asarray([self.mu, self.x[i], self.y[j]]).T) \
-                            + np.dot(beta.T, self.Z[i,j]))
-
-            self.F, self.G = data.mat_fact(P, self.r)
+                #pdb.set_trace()
+                P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) \
+                            + np.dot(self.beta, self.Z[i,j].T))
+            #pdb.set_trace()
+            # ISSUE : sklearn's NMF accepts only non-neg matrices.
+            # Currently taking absolute value of P, check other solution
+            self.F, self.G = data.mat_fact(np.absolute(P), self.r)
             for i,j in self.k:
-                P[i, j] = T[i, j] - np.dot(F[i, :], G[j, :].T)
+                P[i, j] = self.T[i, j] - np.dot(F[i, :], G[j, :].T)
 
             self.alpha, self.beta = self.updateCoeff(P)
             iter += 1
