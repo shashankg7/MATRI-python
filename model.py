@@ -74,7 +74,7 @@ class MATRI(object):
             # Currently taking absolute value of P, check other solution
             self.F, self.G = data.mat_fact(np.absolute(P), self.r)
             for i,j in self.k:
-                P[i, j] = self.T[i, j] - np.dot(F[i, :], G[j, :].T)
+                P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
             self.alpha, self.beta = self.updateCoeff(P)
             iter += 1
