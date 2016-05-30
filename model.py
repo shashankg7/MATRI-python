@@ -46,12 +46,12 @@ class MATRI(object):
             # dim(A[i,j]) = (1,4t+2)
             # and we skip the 1st 3 rows of A, therefore A's dimension available: (1,4t-1)
             # Check once. Seems good i guess?
-            print("Dim(A):",A.shape)
-            print("Dim(Zt):",self.Zt.shape)
-            A[ind,3:] = self.Zt[ind,:,:]
+            A[ind,3:] = self.Z[ind,:,:]
         clf = linear_model.Ridge(alpha = .5)
         clf.fit(A, b)
-        self.alpha, self.beta = clf.coef_
+        self.alpha, self.beta = np.split(clf.coef_, [3])    # Split the matrix into concat of Alpha and Beta
+        return self.alpha, self.beta
+
 
 
     def converge(self, iterNO):
