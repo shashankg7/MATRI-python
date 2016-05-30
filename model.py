@@ -32,7 +32,7 @@ class MATRI(object):
         self._oldG = self.G = np.zeros((self.l, data.num_nodes))
 
     def updateCoeff(self, P):
-        b = np.array(len(self.k))
+        b = np.zeros((len(self.k)))
         for ind, (i, j) in enumerate(self.k):
             b[ind] = P[i, j]
 
@@ -81,12 +81,13 @@ class MATRI(object):
         while not self.converge(iter):
             for ind,(i,j) in enumerate(self.k):
                 #pdb.set_trace()
-                P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) \
-                            + np.dot(self.beta, self.Zt[ind]))
+                P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
+                        np.dot(self.beta, self.Zt[ind]))
             #pdb.set_trace()
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
             # Currently taking absolute value of P, check other solution
             self.F, self.G = data.mat_fact(np.absolute(P), self.r)
+            self.G = self.G.T
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
