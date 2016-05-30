@@ -1,3 +1,4 @@
+from __future__ import print_function
 import numpy as np
 from numpy.linalg import norm
 import pdb
@@ -10,7 +11,7 @@ import sys
 
 class MATRI(object):
     def __init__(self, t, r, l):
-        print "Initializing MATRI..."
+        print("Initializing MATRI...")
         self.max_iter = 1000
         self.t = t
         self.r = r
@@ -18,12 +19,13 @@ class MATRI(object):
         self.T, self.mu, self.x, self.y, self.k  = data.load_data()
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
         self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
-        print "Precomputing Zij...."
+        print("Precomputing Zij....")
         for ind, (i,j) in enumerate(self.k):
-            sys.stdout.write(".")
+            print("\rComputing " + str(ind) + " of " + str(len(self.k)) + " Zij matrices.",end="")
             sys.stdout.flush()
             self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
             self.Zt[ind] = self.Z[ind].T
+        print("\n")
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * t - 1))
         self._oldF = self.F = np.zeros((data.num_nodes, self.l))
@@ -44,8 +46,8 @@ class MATRI(object):
             # dim(A[i,j]) = (1,4t+2)
             # and we skip the 1st 3 rows of A, therefore A's dimension available: (1,4t-1)
             # Check once. Seems good i guess?
-            print "Dim(A):",A.shape
-            print "Dim(Zt):",self.Zt.shape
+            print("Dim(A):",A.shape)
+            print("Dim(Zt):",self.Zt.shape)
             A[ind,3:] = self.Zt[ind,:,:]
         clf = linear_model.Ridge(alpha = .5)
         clf.fit(A, b)
@@ -73,7 +75,7 @@ class MATRI(object):
 
     def startMatri(self):
         """ Start the main MATRI algorithm """
-        print ">> starting MATRI"
+        print(">> starting MATRI")
         P = np.zeros(self.T.shape)
         iter = 1
         while not self.converge(iter):
@@ -99,7 +101,7 @@ class MATRI(object):
         v = input("Enter v: ")
         T = np.dot(self.F[:,], self.G[v,:].T) + np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))  \
              + np.dot(self.beta.T,self.Z[u,v])
-        print "Trust:", T
+        print("Trust:", T)
 
 
 
