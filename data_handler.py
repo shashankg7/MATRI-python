@@ -15,11 +15,14 @@ class data_handler(object):
         self.t = t
 
     def mat_fact(self, X, l):
-        # X - matrix, l - latent factors
+        """ X - matrix, l - latent factors
+            Returns 2 factors of X, such that, dim(L) = n x r
+                                               dim(R.T) = r x n
+        """
         model = NMF(n_components=l, init='random', random_state=0)
         L = model.fit_transform(X)
         R = model.components_
-        return L, R
+        return L, R.T
 
     def mat_fact1(self, R, K):
         N = R.shape[0]
@@ -59,7 +62,6 @@ class data_handler(object):
     def compute_prop(self, T, t, l, i, j):
         L, R = self.mat_fact(T, l)
         # In paper R is N * L
-        R = R.T
         zij = []
 
         RtL = np.dot(R.T, L)
@@ -114,8 +116,6 @@ class data_handler(object):
             y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
             y[i] -= mu
         dp = np.linalg.matrix_power(T, self.t)
-        #t = self.compute_prop(T, 10, 50, 10, 10)
-        #pdb.set_trace()
         return T, mu, x, y, k
 
 if __name__ == "__main__":

@@ -9,6 +9,12 @@ import time
 from data_handler import data_handler
 import sys
 
+
+# TODO
+# - Check alternative for Negative-Matrix-Factorization
+# - Calculate RMSE
+# - Parallelize
+
 class MATRI(object):
     def __init__(self, t, r, l):
         print("Initializing MATRI...")
@@ -21,7 +27,7 @@ class MATRI(object):
         self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
         print("Precomputing Zij....")
         for ind, (i,j) in enumerate(self.k):
-            print("\rComputing " + str(ind) + " of " + str(len(self.k)) + " Zij matrices.",end="")
+            print("\rComputing " + str(ind+1) + " of " + str(len(self.k)) + " Zij matrices.",end="")
             sys.stdout.flush()
             self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
             self.Zt[ind] = self.Z[ind].T
@@ -32,6 +38,8 @@ class MATRI(object):
         self._oldG = self.G = np.zeros((self.l, data.num_nodes))
 
     def updateCoeff(self, P):
+        """ Update the Alpha and Beta weight vectors after each iteration """
+
         b = np.zeros((len(self.k)))
         for ind, (i, j) in enumerate(self.k):
             b[ind] = P[i, j]
@@ -50,8 +58,6 @@ class MATRI(object):
         clf = linear_model.Ridge(alpha = .5)
         clf.fit(A, b)
         self.alpha, self.beta = np.split(clf.coef_, [3])    # Split the matrix into concat of Alpha and Beta
-        return self.alpha, self.beta
-
 
 
     def converge(self, iterNO):
@@ -61,49 +67,56 @@ class MATRI(object):
             return True
 
         # Convergence is reached
-        EPS = np.finfo(float).eps
-        if np.absolute(norm(self.F) - norm(self._oldF)) < EPS and \
-              np.absolute(norm(self.G) - norm(self._oldG)) < EPS:
-            if iterNO == 1:   # Skip for the 1st iteration
-                return False
-            return True
+        # EPS = np.finfo(float).eps
+        EPS = 1
+        E1 = np.absolute(norm(self.F) - norm(self._oldF))
+        E2 = np.absolute(norm(self.G) - norm(self._oldG))
+        if E1 < EPS and E2 < EPS:
+            if iterNO != 1:   # Skip for the 1st iteration
+                print("\rIteration: " + str(iterNO) + " FinalError ~ ("+str(E1)+","+str(E2)+")")
+                return True
 
         self._oldF = self.F
         self._oldG = self.G
+        print("\rIteration: "+str(iterNO)+" Error ~ ("+str(E1)+","+str(E2)+") (EPS:"+str(EPS)+")")
         return False
 
 
     def startMatri(self):
         """ Start the main MATRI algorithm """
-        print(">> starting MATRI")
+        print(">> Starting MATRI",end='')
         P = np.zeros(self.T.shape)
         iter = 1
         while not self.converge(iter):
+            print("Iteration:",iter,end='')
             for ind,(i,j) in enumerate(self.k):
-                #pdb.set_trace()
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
                         np.dot(self.beta, self.Zt[ind]))
-            #pdb.set_trace()
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
             # Currently taking absolute value of P, check other solution
-            self.F, self.G = data.mat_fact(np.absolute(P), self.r)
-            self.G = self.G.T
+            #self.F, self.G = data.mat_fact(np.absolute(P), self.r)
+            self.F, self.G = data.mat_fact(P, self.r)
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
-            self.alpha, self.beta = self.updateCoeff(P)
+            # Update Alpha & Beta
+            self.updateCoeff(P)
             iter += 1
         self.calcTrust()
 
 
     def calcTrust(self):
-        """ Calculate final trust of the from u to v """
-        u = input("Enter u: ")
-        v = input("Enter v: ")
-        T = np.dot(self.F[:,], self.G[v,:].T) + np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))  \
-             + np.dot(self.beta.T,self.Z[u,v])
-        print("Trust:", T)
+        """ Calculate final trust values for all; (u,v) belongs T """
+        self.Tnew = np.zeros((self.num_nodes, self.num_nodes))
+        for u in range(0, self.num_nodes):
+            for v in range(0, self.num_nodes):
+                self.Tnew[u,v] = np.dot(self.F[:,], self.G[v,:].T) + \
+                                    np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]])) \
+                                        + np.dot(self.beta.T,self.Z[u,v])
 
+
+    def RMSE(self):
+        pass
 
 
 if __name__ == "__main__":
