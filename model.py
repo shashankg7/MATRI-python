@@ -16,12 +16,14 @@ class MATRI(object):
         self.r = r
         self.l = l
         self.T, self.mu, self.x, self.y, self.k  = data.load_data()
-        self.Z = np.zeros(self.T.shape + (1, 4*self.t-1))
+        self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
+        self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
         print "Precomputing Zij...."
-        for i,j in self.k:
+        for ind, (i,j) in enumerate(self.k):
             sys.stdout.write(".")
             sys.stdout.flush()
-            self.Z[i, j] = data.compute_prop(self.T, self.t, self.l, i, j)
+            self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
+            self.Zt[ind] = self.Z[ind].T
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * t - 1))
         self._oldF = self.F = np.zeros((data.num_nodes, self.l))
@@ -33,8 +35,18 @@ class MATRI(object):
             b[ind] = P[i, j]
 
         A = np.zeros((len(self.k), 4*self.t + 2))
-        A[:,1], A[:,2], A[:,3] = self.mu, self.x, self.y
-        A[:,4:4*t+2] = self.Z.T
+        A[:,0] = self.mu
+        for ind,(i,j) in enumerate(self.k):
+            A[ind,1] = self.x[i]
+            A[ind,2] = self.y[j]
+            # Check dimension of Zt vs A[:,:,4:]
+            # dim(Z[i,j]) = (1,4t-1)
+            # dim(A[i,j]) = (1,4t+2)
+            # and we skip the 1st 3 rows of A, therefore A's dimension available: (1,4t-1)
+            # Check once. Seems good i guess?
+            print "Dim(A):",A.shape
+            print "Dim(Zt):",self.Zt.shape
+            A[ind,3:] = self.Zt[ind,:,:]
         clf = linear_model.Ridge(alpha = .5)
         clf.fit(A, b)
         self.alpha, self.beta = clf.coef_
