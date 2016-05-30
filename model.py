@@ -77,10 +77,10 @@ class MATRI(object):
         P = np.zeros(self.T.shape)
         iter = 1
         while not self.converge(iter):
-            for i,j in self.k:
+            for ind,(i,j) in enumerate(self.k):
                 #pdb.set_trace()
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) \
-                            + np.dot(self.beta, self.Z[i,j].T))
+                            + np.dot(self.beta, self.Zt[ind]))
             #pdb.set_trace()
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
             # Currently taking absolute value of P, check other solution
