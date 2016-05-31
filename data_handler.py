@@ -8,6 +8,7 @@ from sklearn.decomposition import NMF
 from numpy import power
 from datetime import datetime
 import numpy
+import pymf
 
 class data_handler(object):
     def __init__(self, path, t):
@@ -19,9 +20,12 @@ class data_handler(object):
             Returns 2 factors of X, such that, dim(L) = n x r
                                                dim(R.T) = r x n
         """
-        model = NMF(n_components=l, init='random', random_state=0)
-        L = model.fit_transform(X)
-        R = model.components_
+        #model = NMF(n_components=l, init='random', random_state=0)
+        nmf = pymf.NMF(X, num_bases=l, niter=100)
+        #L = model.fit_transform(X)
+        L = nmf.W
+        #R = model.components_
+        R = nmf.H
         return L, R.T
 
     def mat_fact1(self, R, K):
