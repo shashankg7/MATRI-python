@@ -9,6 +9,8 @@ import time
 from data_handler import data_handler
 import sys, os
 
+import sys,os
+import pymf
 
 # TODO
 # - Check alternative for Negative-Matrix-Factorization
@@ -128,8 +130,8 @@ class MATRI(object):
                     print("\rComputing " + str(i*10 + j + 1) + " of " + str(data.num_nodes*data.num_nodes) + " Zij matrices.",end="")
             print("\n")
             np.save(file2, Zij)
-    
-        
+
+
         for u in range(0, data.num_nodes):
             for v in range(0, data.num_nodes):
                 #pdb.set_trace()
@@ -144,7 +146,7 @@ class MATRI(object):
     def RMSE(self):
         return np.sqrt(np.mean((self.Tnew-self.T)**2))
 
-        
+
 
 
 if __name__ == "__main__":
