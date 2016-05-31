@@ -7,7 +7,7 @@ from sklearn.decomposition import NMF
 from numpy import power
 import time
 from data_handler import data_handler
-import sys
+import sys, os
 
 
 # TODO
@@ -16,21 +16,28 @@ import sys
 # - Parallelize
 
 class MATRI(object):
-    def __init__(self, t, r, l):
+    def __init__(self, t, r, l, max_itr):
         print("Initializing MATRI...")
-        self.max_iter = 1000
+        self.max_iter = max_itr
         self.t = t
         self.r = r
         self.l = l
         self.T, self.mu, self.x, self.y, self.k  = data.load_data()
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
         self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
-        print("Precomputing Zij....")
-        for ind, (i,j) in enumerate(self.k):
-            print("\rComputing " + str(ind+1) + " of " + str(len(self.k)) + " Zij matrices.",end="")
-            sys.stdout.flush()
-            self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
-            self.Zt[ind] = self.Z[ind].T
+
+        file_name = "Zij_save"
+        if os.path.isfile(file_name + ".npy"):
+            print("Loading Zij from: " + file_name + ".npy")
+            self.Z = np.load(file_name + ".npy")
+        else:
+            print("Precomputing Zij....")
+            for ind, (i,j) in enumerate(self.k):
+                print("\rComputing " + str(ind+1) + " of " + str(len(self.k)) + " Zij matrices.",end="")
+                sys.stdout.flush()
+                self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
+                self.Zt[ind] = self.Z[ind].T
+            np.save(file_name, self.Z)
         print("\n")
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * t - 1))
@@ -68,7 +75,7 @@ class MATRI(object):
 
         # Convergence is reached
         # EPS = np.finfo(float).eps
-        EPS = 1
+        EPS = 0.000001
         E1 = np.absolute(norm(self.F) - norm(self._oldF))
         E2 = np.absolute(norm(self.G) - norm(self._oldG))
         if E1 < EPS and E2 < EPS:
@@ -94,8 +101,8 @@ class MATRI(object):
                         np.dot(self.beta, self.Zt[ind]))
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
             # Currently taking absolute value of P, check other solution
-            #self.F, self.G = data.mat_fact(np.absolute(P), self.r)
-            self.F, self.G = data.mat_fact(P, self.r)
+            self.F, self.G = data.mat_fact(np.absolute(P), self.r)
+            #self.F, self.G = data.mat_fact(P, self.r)
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
@@ -103,26 +110,48 @@ class MATRI(object):
             self.updateCoeff(P)
             iter += 1
         self.calcTrust()
+        print(self.RMSE())
 
 
     def calcTrust(self):
         """ Calculate final trust values for all; (u,v) belongs T """
-        self.Tnew = np.zeros((self.num_nodes, self.num_nodes))
-        for u in range(0, self.num_nodes):
-            for v in range(0, self.num_nodes):
-                self.Tnew[u,v] = np.dot(self.F[:,], self.G[v,:].T) + \
-                                    np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]])) \
-                                        + np.dot(self.beta.T,self.Z[u,v])
-
+        self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
+        Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
+        file2 = "zij_all"
+        if os.path.isfile(file2 + ".npy"):
+            print("Loading FULL Zij from: " + file_name2 + ".npy")
+            Zij = np.load(file2 + ".npy")
+        else:
+            for i in range(0, data.num_nodes):
+                for j in range(0, data.num_nodes):
+                    Zij[i,j] = data.compute_prop(self.T, self.t, self.l, i, j)
+                    print("\rComputing " + str(i*10 + j + 1) + " of " + str(data.num_nodes*data.num_nodes) + " Zij matrices.",end="")
+            print("\n")
+            np.save(file2, Zij)
+    
+        
+        for u in range(0, data.num_nodes):
+            for v in range(0, data.num_nodes):
+                #pdb.set_trace()
+                # Used self.Z[u,v] instead of self.Z[u,v].T, due to numpy issues
+                # Use G[v,:] instead of transpose
+                A = np.dot(self.F[u,:], self.G[v,:])
+                #pdb.set_trace()
+                B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
+                C = np.dot(self.beta, Zij[u,v])
+                self.Tnew[u,v] = A + B + C
 
     def RMSE(self):
-        pass
+        return np.sqrt(np.mean((self.Tnew-self.T)**2))
+
+        
 
 
 if __name__ == "__main__":
     t = 6
     r = 10
     l = 10
+    max_itr = 30
     data = data_handler("data/advogato-graph-2000-02-25.dot", t)
-    m = MATRI(t, r, l)
+    m = MATRI(t, r, l, max_itr)
     m.startMatri()
