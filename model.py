@@ -87,7 +87,7 @@ class MATRI(object):
 
         self._oldF = self.F
         self._oldG = self.G
-        print("\rIteration: "+str(iterNO)+" Error ~ ("+str(E1)+","+str(E2)+") (EPS:"+str(EPS)+")")
+        #print("\rIteration: "+str(iterNO)+" Error ~ ("+str(E1)+","+str(E2)+") (EPS:"+str(EPS)+")")
         return False
 
 
@@ -96,23 +96,31 @@ class MATRI(object):
         print(">> Starting MATRI",end='')
         P = np.zeros(self.T.shape)
         iter = 1
-        while not self.converge(iter):
-            print("Iteration:",iter,end='')
-            for ind,(i,j) in enumerate(self.k):
-                P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
-                        np.dot(self.beta, self.Zt[ind]))
-            # ISSUE : sklearn's NMF accepts only non-neg matrices.
-            # Currently taking absolute value of P, check other solution
-            self.F, self.G = data.mat_fact(np.absolute(P), self.r)
-            #self.F, self.G = data.mat_fact(P, self.r)
-            for i,j in self.k:
-                P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
+        n_epochs = 10
+        #self.calcTrust()
+        #print("RMSE befor training is") 
+        #print(self.RMSE())
+        for epoch in xrange(n_epochs):
+            iter = 1
+            print("Epoch no %d" % epoch)
+            while not self.converge(iter):
+                #print("Iteration:",iter,end='')
+                for ind,(i,j) in enumerate(self.k):
+                    P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
+                            np.dot(self.beta, self.Zt[ind]))
+                # ISSUE : sklearn's NMF accepts only non-neg matrices.
+                # Currently taking absolute value of P, check other solution
+                #self.F, self.G = data.mat_fact(np.absolute(P), self.r)
+                self.F, self.G = data.mat_fact(P, self.r)
+                for i,j in self.k:
+                    P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
-            # Update Alpha & Beta
-            self.updateCoeff(P)
-            iter += 1
-        self.calcTrust()
-        print(self.RMSE())
+                # Update Alpha & Beta
+                self.updateCoeff(P)
+                iter += 1
+            self.calcTrust()
+            print("RMSE after trianing is")
+            print(self.RMSE())
 
 
     def calcTrust(self):
@@ -121,7 +129,7 @@ class MATRI(object):
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
         file2 = "zij_all"
         if os.path.isfile(file2 + ".npy"):
-            print("Loading FULL Zij from: " + file_name2 + ".npy")
+            print("Loading FULL Zij from: " + file2 + ".npy")
             Zij = np.load(file2 + ".npy")
         else:
             for i in range(0, data.num_nodes):
@@ -140,20 +148,18 @@ class MATRI(object):
                 A = np.dot(self.F[u,:], self.G[v,:])
                 #pdb.set_trace()
                 B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
-                C = np.dot(self.beta, Zij[u,v])
+                C = np.dot(self.beta, Zij[u,v].T)
                 self.Tnew[u,v] = A + B + C
 
     def RMSE(self):
         return np.sqrt(np.mean((self.Tnew-self.T)**2))
 
 
-
-
 if __name__ == "__main__":
     t = 6
     r = 10
     l = 10
-    max_itr = 30
-    data = data_handler("data/advogato-graph-2000-02-25.dot", t)
+    max_itr = 100
+    data = data_handler("data/advogato-graph-2011-06-23.dot", t)
     m = MATRI(t, r, l, max_itr)
     m.startMatri()

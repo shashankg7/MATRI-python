@@ -21,7 +21,8 @@ class data_handler(object):
                                                dim(R.T) = r x n
         """
         #model = NMF(n_components=l, init='random', random_state=0)
-        nmf = pymf.NMF(X, num_bases=l, niter=100)
+        nmf = pymf.NMF(X, num_bases=l)
+        nmf.factorize()
         #L = model.fit_transform(X)
         L = nmf.W
         #R = model.components_
@@ -97,10 +98,10 @@ class data_handler(object):
         self.num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
         print "Nodes:",self.num_nodes, ", Edges:",self.num_edges
         node_to_index = dict(zip(nodes, range(len(nodes))))
-        #rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
-        #              '"Master"':0.9}
-        rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
-                      'Master':0.9}
+        rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
+                      '"Master"':0.9}
+        #rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
+        #              'Master':0.9}
 
         T = np.zeros((self.num_nodes, self.num_nodes))
         k = []
@@ -123,7 +124,7 @@ class data_handler(object):
         return T, mu, x, y, k
 
 if __name__ == "__main__":
-    data = data_handler("data/advogato-graph-2000-02-25.dot",5)
+    data = data_handler("data/advogato-graph-2011-06-23.dot",5)
     t = datetime.now()
     T, mu, x, y, k = data.load_data()
     t = (datetime.now() - t).total_seconds()
