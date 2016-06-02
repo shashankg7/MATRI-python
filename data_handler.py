@@ -9,6 +9,7 @@ from numpy import power
 from datetime import datetime
 import numpy
 import pymf
+import os
 
 class data_handler(object):
     def __init__(self, path, t):
@@ -94,6 +95,58 @@ class data_handler(object):
         graph = nx.Graph(nx.drawing.nx_pydot.read_dot(self.path))
         nodes = graph.node.keys()
         edges = graph.edge
+
+        REDUCE_DATA = True
+        KEEP_EDGES = 500
+        deleted_edges = {}
+        if REDUCE_DATA:
+            fileTrain = "data_train.txt"
+            fileTest = "data_test.txt"
+            if os.path.isfile(fileTrain) and os.path.isfile(fileTest):
+                print("Loading the SPLIT dataset from file...")
+                with open(fileTrain, 'r') as f:
+                    edges = json.load(f)
+                with open(fileTest, 'r') as f:
+                    deleted_edges = json.load(f)
+            else:
+                print("Splitting dataset, Saving %d edges for testing" %(KEEP_EDGES))
+                ind = 0
+                while ind < KEEP_EDGES:
+                    # Find a node
+                    keys = edges.keys()
+                    i = np.random.randint(0,len(keys))
+                    n1 = keys[i]
+
+                    # Find neighbour
+                    neighbours = edges[n1]
+                    keys2 = neighbours.keys()
+
+                    # When the node has no neighbours then skip
+                    if len(keys2) == 0:
+                        continue
+                    ind = ind + 1
+                    j = np.random.randint(0,len(keys2))
+                    n2 = keys2[j]
+
+                    # Delete 'em
+                    if not n1 in deleted_edges:
+                        deleted_edges[n1] = {}
+                    if not n2 in deleted_edges[n1]:
+                        deleted_edges[n1][n2] = {}
+
+                    deleted_edges[n1][n2].update(edges[n1].pop(n2))
+
+                print("Saving dataset to files...")
+                # Save only when we split the dataset
+                with open('data_train.txt', 'w') as f:
+                    json.dump(edges, f)
+                with open('data_test.txt', 'w') as f:
+                    json.dump(deleted_edges, f)
+
+
+            deleted_num_edges = sum(map(lambda x:len(deleted_edges[x].keys()), deleted_edges))
+            print('Deleted Edges = %d' %(deleted_num_edges))
+
         self.num_nodes = len(nodes)
         self.num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
         print "Nodes:",self.num_nodes, ", Edges:",self.num_edges
@@ -108,8 +161,8 @@ class data_handler(object):
         for i, node in enumerate(nodes):
             edge_list = edges[node]
             for user in edge_list:
-                T[i][node_to_index[user]] = rating_map[edge_list[user]['level']]
-                k.append((i,node_to_index[user]))
+                T[node_to_index[node]][node_to_index[user]] = rating_map[edge_list[user]['level']]
+                k.append((node_to_index[node], node_to_index[user]))
 
         mu = np.sum(T)
         mu /= len(T[np.where(T > 0)])
@@ -121,7 +174,7 @@ class data_handler(object):
             y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
             y[i] -= mu
         dp = np.linalg.matrix_power(T, self.t)
-        return T, mu, x, y, k
+        return T, mu, x, y, k, deleted_edges, node_to_index, rating_map
 
 if __name__ == "__main__":
     data = data_handler("data/advogato-graph-2011-06-23.dot",5)
