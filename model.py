@@ -14,7 +14,7 @@ import pymf
 import threading
 
 # TODO
-# - Parallelize
+# - Improve accuracy
 
 class MATRI(object):
     def __init__(self, t, r, l, max_itr):
@@ -217,7 +217,7 @@ class MATRI(object):
                         np.dot(self.beta, self.Zt[ind]))
 
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
-            #self.F, self.G = data.mat_fact(np.absolute(P), self.r)     # So using pymf factorization
+            #self.F, self.G = data.mat_fact(P, self.r)                  # So using pymf factorization
             self.F, self.G = self.mat_fact(P, self.r)                   # Factorization mentioned in the paper
 
             for i,j in self.k:
@@ -360,6 +360,7 @@ class MATRI(object):
                 n1 = self.node_to_index[node]
                 n2 = self.node_to_index[user]
                 # n1 and n2 are the final user indices used in the matrix
+
                 tvalue_test = np.append(tvalue_test, self.rating_map[edge_list[user]['level']])
                 tvalue_train = np.append(tvalue_train, self.Tnew[n1][n2])
         return np.sqrt(np.mean(np.square(np.subtract(tvalue_test, tvalue_train))))
