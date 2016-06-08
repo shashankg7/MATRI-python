@@ -10,13 +10,15 @@ from datetime import datetime
 import numpy
 import pymf
 import os
+import copy
+
 
 class data_handler(object):
     def __init__(self, path, t):
         self.path = path
         self.t = t
 
-    def mat_fact(self, X, l):
+    def mat_fact1(self, X, l):
         """ X - matrix, l - latent factors
             Returns 2 factors of X, such that, dim(L) = n x r
                                                dim(R.T) = r x n
@@ -30,7 +32,7 @@ class data_handler(object):
         R = nmf.H
         return L, R.T
 
-    def mat_fact1(self, R, K):
+    def mat_fact(self, R, K):
         N = R.shape[0]
         P = np.random.rand(N, K)
         Q = np.random.rand(N, K)
@@ -94,7 +96,7 @@ class data_handler(object):
     def load_data(self):
         graph = nx.Graph(nx.drawing.nx_pydot.read_dot(self.path))
         nodes = graph.node.keys()
-        edges = graph.edge
+        edges = copy.deepcopy(graph.edge)
 
         REDUCE_DATA = True
         KEEP_EDGES = 500
