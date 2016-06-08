@@ -24,7 +24,6 @@ class MATRI(object):
         self.r = r
         self.l = l
         self.T, self.mu, self.x, self.y, self.k, self.deleted_edges, self.node_to_index, self.rating_map  = data.load_data()
-        #pdb.set_trace()
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
         self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
 
@@ -77,6 +76,7 @@ class MATRI(object):
             print("\n")
             np.save(file_name, self.Z)
 
+        # Initializing the weight vectors
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * self.t - 1))
         self._oldF = self.F = np.zeros((data.num_nodes, self.l))
@@ -84,6 +84,9 @@ class MATRI(object):
 
     
     def alternatinUpdate(self, P, F, G, r):
+        """ Factorize the given matrix using the alternatingUpdate algorithm
+            mentioned in MATRI-report
+        """
         lamda = 0.1
         F1 = copy.deepcopy(F)
         for i in self.d.keys():
@@ -104,6 +107,9 @@ class MATRI(object):
 
 
     def mat_fact(self, X, r):
+        """ Factorization code from the paper
+            This code is very slow.
+        """
         print("Factorizing the matrices")
         F0 = np.zeros((self.T.shape[0], r))
         G0 = np.zeros((self.T.shape[0], r))
@@ -143,7 +149,8 @@ class MATRI(object):
 
 
     def updateCoeff(self, P):
-        """ Update the Alpha and Beta weight vectors after each iteration """
+        """ Update the Alpha and Beta weight vectors after each iteration
+        """
 
         b = np.zeros((len(self.k)))
         for ind, (i, j) in enumerate(self.k):
@@ -162,6 +169,9 @@ class MATRI(object):
             A[ind,3:] = self.Z[ind,:,:]
         clf = linear_model.Ridge(alpha = 0.1)
         clf.fit(A, b)
+
+        # The resultant vector is the concat. of the 2 vectors. Hence we need to split it into vectors,
+        # Dimension:    Alpha=(1,3) ,  Beta=(1,4t-1)
         self.alpha, self.beta = np.split(clf.coef_, [3])    # Split the matrix into concat of Alpha and Beta
 
 
@@ -181,6 +191,7 @@ class MATRI(object):
                 print("\rIteration: %d FinalError: (%f, %f) EPS:%f" %(iterNO, E1, E2, EPS))
                 return True
 
+        # Copy the successive F and G for next iteration.
         self._oldF = copy.deepcopy(self.F)
         self._oldG = copy.deepcopy(self.G)
         print("\rIteration: %d FinalError: (%f, %f) EPS:%f" %(iterNO, E1, E2, EPS))
@@ -204,14 +215,15 @@ class MATRI(object):
             for ind,(i,j) in enumerate(self.k):
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
                         np.dot(self.beta, self.Zt[ind]))
+
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
-            # Currently taking absolute value of P, check other solution
-            #self.F, self.G = data.mat_fact(np.absolute(P), self.r)
-            self.F, self.G = self.mat_fact(P, self.r)
+            #self.F, self.G = data.mat_fact(np.absolute(P), self.r)     # So using pymf factorization
+            self.F, self.G = self.mat_fact(P, self.r)                   # Factorization mentioned in the paper
+
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
-            # Update Alpha & Beta
+            # Update Alpha & Beta vectors
             self.updateCoeff(P)
             if iter % 5 == 0:
                 self.calcTrust_test()
@@ -220,14 +232,16 @@ class MATRI(object):
 
 
     def join_zij(self):
-        """ Computes the full Zij by joining all the values"""
+        """ Computes the full Zij by joining all the values
+            from the Test-Zij and Train-ij
+        """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
         file2 = "Zij_all_save"
         if os.path.isfile(file2 + ".npy"):
-            print("Loading FULL Zij from: " + file2 + ".npy")
+            print("Loading FULL-Zij from: " + file2 + ".npy")
             Zij = np.load(file2 + ".npy")
         else:
-            # Copy test Zij
+            # Copy test-Zij
             ind = 1
             deleted_nodes = self.deleted_edges.keys()
             for i, node in enumerate(deleted_nodes):
@@ -237,20 +251,22 @@ class MATRI(object):
                     v = self.node_to_index[user]
                     Zij[u,v] = self.Zij_test[u,v]
 
-            # Copy train Zij
+            # Copy train-Zij
             for ind, (i,j) in enumerate(self.k):
                 Zij[i,j] = self.Z[ind]
 
-            # Grab whatever you can !!
+            # Grab whatever you can !! (Save to file)
             np.save(file2, Zij)
         return Zij
 
     def compute_zij_test(self):
-        """ Computes the full Zij on all n^2 values"""
+        """ Computes the Zij on all the values
+            from the test_dataset.
+        """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
         file2 = "Zij_test"
         if os.path.isfile(file2 + ".npy"):
-            print("Loading TEST Zij from: " + file2 + ".npy")
+            print("Loading TEST-Zij from: " + file2 + ".npy")
             Zij = np.load(file2 + ".npy")
         else:
             ind = 1
@@ -270,11 +286,12 @@ class MATRI(object):
 
 
     def compute_zij(self):
-        """ Computes the full Zij on all n^2 values"""
+        """ Computes the FULL-Zij on all n^2 values
+        """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
         file2 = "Zij_all_save"
         if os.path.isfile(file2 + ".npy"):
-            print("Loading FULL Zij from: " + file2 + ".npy")
+            print("Loading FULL-Zij from: " + file2 + ".npy")
             Zij = np.load(file2 + ".npy")
         else:
             ind = 1
@@ -291,7 +308,7 @@ class MATRI(object):
 
 
     def calcTrust_test(self):
-        """ Calculate final trust values for (u,v) belongs test-dataset """
+        """ Calculate final trust values for (u,v) belongs to test-dataset """
         self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
 
         deleted_nodes = self.deleted_edges.keys()
@@ -301,10 +318,9 @@ class MATRI(object):
                 u = self.node_to_index[node]
                 v = self.node_to_index[user]
                
-                # Used self.Z[u,v] instead of self.Z[u,v].T, due to numpy issues
+                # Used self.Z[u,v] instead of self.Z[u,v].T, as numpy gives transpose of the 1-d array as the array itself.
                 # Use G[v,:] instead of transpose
                 A = np.dot(self.F[u,:], self.G[v,:])
-                #pdb.set_trace()
                 B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
                 C = np.dot(self.beta, self.Zij[u,v].T)
                 self.Tnew[u,v] = A + B + C
@@ -326,14 +342,15 @@ class MATRI(object):
                 self.Tnew[u,v] = A + B + C
 
 
-
     def RMSE(self):
+        """ Calculate RMSE b/w the trust matrices
+        """
         return np.sqrt(np.mean((self.Tnew-self.T)**2))
 
 
-
     def RMSE_test(self):
-        """ Calculate RMSE only on the test data """
+        """ Calculate RMSE only on the test data, i.e 500 edges
+        """
         tvalue_test = np.array([])
         tvalue_train = np.array([])
         deleted_nodes = self.deleted_edges.keys()
@@ -342,6 +359,7 @@ class MATRI(object):
             for user in edge_list:
                 n1 = self.node_to_index[node]
                 n2 = self.node_to_index[user]
+                # n1 and n2 are the final user indices used in the matrix
                 tvalue_test = np.append(tvalue_test, self.rating_map[edge_list[user]['level']])
                 tvalue_train = np.append(tvalue_train, self.Tnew[n1][n2])
         return np.sqrt(np.mean(np.square(np.subtract(tvalue_test, tvalue_train))))

@@ -23,12 +23,15 @@ class data_handler(object):
             Returns 2 factors of X, such that, dim(L) = n x r
                                                dim(R.T) = r x n
         """
-        #model = NMF(n_components=l, init='random', random_state=0)
+        # ISSUE : sklearn's NMF accepts only non-neg matrices.
+        # model = NMF(n_components=l, init='random', random_state=0)
+        # L = model.fit_transform(X)
+        # R = model.components_
+
+        # Using pymf factorization
         nmf = pymf.NMF(X, num_bases=l)
         nmf.factorize()
-        #L = model.fit_transform(X)
         L = nmf.W
-        #R = model.components_
         R = nmf.H
         return L, R.T
 
