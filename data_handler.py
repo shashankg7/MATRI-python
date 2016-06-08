@@ -18,7 +18,7 @@ class data_handler(object):
         self.path = path
         self.t = t
 
-    def mat_fact1(self, X, l):
+    def mat_fact(self, X, l):
         """ X - matrix, l - latent factors
             Returns 2 factors of X, such that, dim(L) = n x r
                                                dim(R.T) = r x n
@@ -32,7 +32,7 @@ class data_handler(object):
         R = nmf.H
         return L, R.T
 
-    def mat_fact(self, R, K):
+    def mat_fact_ALS(self, R, K):
         N = R.shape[0]
         P = np.random.rand(N, K)
         Q = np.random.rand(N, K)
@@ -153,10 +153,10 @@ class data_handler(object):
         self.num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
         print "Nodes:",self.num_nodes, ", Edges:",self.num_edges
         node_to_index = dict(zip(nodes, range(len(nodes))))
-        rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
-                      '"Master"':0.9}
-        #rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
-        #              'Master':0.9}
+        #rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
+        #              '"Master"':0.9}
+        rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
+                      'Master':0.9}
 
         T = np.zeros((self.num_nodes, self.num_nodes))
         k = []

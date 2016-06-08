@@ -24,7 +24,7 @@ class MATRI(object):
         self.r = r
         self.l = l
         self.T, self.mu, self.x, self.y, self.k, self.deleted_edges, self.node_to_index, self.rating_map  = data.load_data()
-        pdb.set_trace()
+        #pdb.set_trace()
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
         self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
 
@@ -86,10 +86,8 @@ class MATRI(object):
     def alternatinUpdate(self, P, F, G, r):
         lamda = 0.1
         F1 = copy.deepcopy(F)
-        a = len(self.k)
         for i in self.d.keys():
-            # set of column indices
-            a = d[i]
+            a = self.d[i]
             d = np.zeros((len(a), 1))
             G1 = np.zeros((len(a), r))
             for j in xrange(len(a)):
@@ -99,11 +97,14 @@ class MATRI(object):
             #d = self.T[i, a]
             #1[xrange(len(a)), :] = G[a,:]
             # TO-DO: Use sklearn's regression to find F1[i, :] instead
-            F1[i, :] = np.dot(np.dot(np.linalg.inv((np.dot(G1.T, G) + lambda * np.eye(r))), G1.T), d)
+            temp = np.linalg.inv((np.dot(G1.T, G1) + lamda * np.eye(r))) 
+            #pdb.set_trace()
+            F1[i, :] = np.dot(np.dot(temp, G1.T), d).reshape(r,)
         return F1
 
 
     def mat_fact(self, X, r):
+        print("Factorizing the matrices")
         F0 = np.zeros((self.T.shape[0], r))
         G0 = np.zeros((self.T.shape[0], r))
         F0[:] = 1/float(r)
@@ -119,13 +120,13 @@ class MATRI(object):
                 self.d[i].append(j)
         iter = 1
         MAX_ITER = 200
-        F = self.alternatinUpdate(X, F0, G0)
-        G = self.alternatinUpdate(X.T, G0, F0)
-        while np.norm(F - F0) > EPS and np.norm(G - G0) > EPS:
-            if iter > MAX_ITER:
+        F = self.alternatinUpdate(X, F0, G0, r)
+        G = self.alternatinUpdate(X.T, G0, F0, r)
+        while norm(F - F0) > EPS and norm(G - G0) > EPS:
+             if iter > MAX_ITER:
                 return F, G
-             F = self.alternatinUpdate(X, F0, G0)
-             G = self.alternatinUpdate(X.T, G0, F0)
+             F = self.alternatinUpdate(X, F0, G0, r)
+             G = self.alternatinUpdate(X.T, G0, F0, r)
         return F, G
     
 
@@ -206,7 +207,7 @@ class MATRI(object):
             # ISSUE : sklearn's NMF accepts only non-neg matrices.
             # Currently taking absolute value of P, check other solution
             #self.F, self.G = data.mat_fact(np.absolute(P), self.r)
-            self.F, self.G = data.mat_fact(P, self.r)
+            self.F, self.G = self.mat_fact(P, self.r)
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
@@ -352,6 +353,6 @@ if __name__ == "__main__":
     r = 10
     l = 10
     max_itr = 10000
-    data = data_handler("data/advogato-graph-2011-06-23.dot", t)
+    data = data_handler("data/advogato-graph-2000-02-25.dot", t)
     m = MATRI(t, r, l, max_itr)
     m.startMatri()
