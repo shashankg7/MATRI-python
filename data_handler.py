@@ -37,12 +37,13 @@ class data_handler(object):
         P = np.random.rand(N, K)
         Q = np.random.rand(N, K)
         Q = Q.T
-        steps = 5000
+        steps = 200
         alpha = 0.0002
         beta = 0.02
+        indices = np.where(R > 0)
         for step in xrange(steps):
-            for i in xrange(len(R)):
-                for j in xrange(len(R[i])):
+            for i in indices[0]:
+                for j in indices[1]:
                     if R[i][j] > 0:
                         eij = R[i][j] - numpy.dot(P[i,:],Q[:,j])
                         for k in xrange(K):
@@ -58,7 +59,7 @@ class data_handler(object):
                             e = e + (beta/2) * ( pow(P[i][k],2) + pow(Q[k][j],2) )
             if e < 0.001:
                 break
-        return P, Q
+        return P, Q.T
 
     def mat_pow(self, X, i):
         return power(X, i)
