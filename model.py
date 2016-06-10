@@ -13,8 +13,6 @@ import sys,os
 import pymf
 import threading
 
-# TODO
-# - Improve accuracy
 
 class MATRI(object):
     def __init__(self, t, r, l, max_itr):
@@ -87,9 +85,10 @@ class MATRI(object):
         """ Factorize the given matrix using the alternatingUpdate algorithm
             mentioned in MATRI-report
         """
-        lamda = 0.1
+        lamda = 0.05
         F1 = copy.deepcopy(F)
         for i in self.d.keys():
+            # set of column indices
             a = self.d[i]
             d = np.zeros((len(a), 1))
             G1 = np.zeros((len(a), r))
@@ -97,24 +96,25 @@ class MATRI(object):
                 d[j] = self.T[i, a[j]]
                 G1[j, :] = G[a[j], :]
             # Vectorize previous loop
-            #d = self.T[i, a]
-            #1[xrange(len(a)), :] = G[a,:]
+            # d = self.T[i, a]
+            # 1[xrange(len(a)), :] = G[a,:]
             # TO-DO: Use sklearn's regression to find F1[i, :] instead
-            temp = np.linalg.inv((np.dot(G1.T, G1) + lamda * np.eye(r))) 
-            #pdb.set_trace()
+            temp = np.linalg.inv((np.dot(G1.T, G1) + lamda * np.eye(r)))
             F1[i, :] = np.dot(np.dot(temp, G1.T), d).reshape(r,)
+
         return F1
 
 
     def mat_fact(self, X, r):
         """ Factorization code from the paper
-            This code is very slow.
         """
         print("Factorizing the matrices")
-        F0 = np.zeros((self.T.shape[0], r))
-        G0 = np.zeros((self.T.shape[0], r))
-        F0[:] = 1/float(r)
-        G0[:] = 1/float(r)
+        F0 = np.random.rand(self.T.shape[0], r)
+        G0 = np.random.rand(self.T.shape[0], r)
+        #F0 = np.zeros((self.T.shape[0], r))
+        #G0 = np.zeros((self.T.shape[0], r))
+        #F0[:] = 1/float(r)
+        #G0[:] = 1/float(r)
         EPS = 0.0001
         # pre-process self.k for alternatingUpate
         self.d = {}
@@ -127,12 +127,15 @@ class MATRI(object):
         iter = 1
         MAX_ITER = 200
         F = self.alternatinUpdate(X, F0, G0, r)
-        G = self.alternatinUpdate(X.T, G0, F0, r)
+        G = self.alternatinUpdate(X.T, G0, F, r)
         while norm(F - F0) > EPS and norm(G - G0) > EPS:
              if iter > MAX_ITER:
                 return F, G
+             F0[:] = F[:]
+             G0[:] = G[:]
              F = self.alternatinUpdate(X, F0, G0, r)
-             G = self.alternatinUpdate(X.T, G0, F0, r)
+             G = self.alternatinUpdate(X.T, G0, F, r)
+             iter += 1
         return F, G
     
 
@@ -203,6 +206,8 @@ class MATRI(object):
         print(">> Starting MATRI")
         P = np.zeros(self.T.shape)
         
+        RMSE = []
+
         # Compute Zij for test data
         self.Zij_test = self.compute_zij_test()
 
@@ -216,19 +221,24 @@ class MATRI(object):
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
                         np.dot(self.beta, self.Zt[ind]))
 
-            # ISSUE : sklearn's NMF accepts only non-neg matrices.
             #self.F, self.G = data.mat_fact(P, self.r)                  # So using pymf factorization
             self.F, self.G = self.mat_fact(P, self.r)                   # Factorization mentioned in the paper
+
 
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
 
             # Update Alpha & Beta vectors
             self.updateCoeff(P)
-            if iter % 5 == 0:
+            if not iter%1:
                 self.calcTrust_test()
-                print("RMSE after %d epoch is (on training) %f" %(iter, self.RMSE_test()))
+                R = self.RMSE_test()
+                print("RMSE after %d epoch is (on training) %f" %(iter, R))
+                RMSE.append(R)
             iter += 1
+
+        # Save all the RMSE to plot the graph
+        np.save('RMSE', np.asarray(RMSE))
 
 
     def join_zij(self):
@@ -241,7 +251,7 @@ class MATRI(object):
             print("Loading FULL-Zij from: " + file2 + ".npy")
             Zij = np.load(file2 + ".npy")
         else:
-            # Copy test-Zij
+            # Copy Test-Zij
             ind = 1
             deleted_nodes = self.deleted_edges.keys()
             for i, node in enumerate(deleted_nodes):
@@ -251,7 +261,7 @@ class MATRI(object):
                     v = self.node_to_index[user]
                     Zij[u,v] = self.Zij_test[u,v]
 
-            # Copy train-Zij
+            # Copy Train-Zij
             for ind, (i,j) in enumerate(self.k):
                 Zij[i,j] = self.Z[ind]
 
@@ -342,10 +352,12 @@ class MATRI(object):
                 self.Tnew[u,v] = A + B + C
 
 
+
     def RMSE(self):
         """ Calculate RMSE b/w the trust matrices
         """
         return np.sqrt(np.mean((self.Tnew-self.T)**2))
+
 
 
     def RMSE_test(self):
@@ -371,7 +383,7 @@ if __name__ == "__main__":
     t = 6
     r = 10
     l = 10
-    max_itr = 10000
+    max_itr = 1000
     data = data_handler("data/advogato-graph-2000-02-25.dot", t)
     m = MATRI(t, r, l, max_itr)
     m.startMatri()
