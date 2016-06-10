@@ -33,6 +33,8 @@ FILE_RMSE = FILE_DIR + "RMSE"
 # GLOBAL_EPS = np.finfo(float).eps
 GLOBAL_EPS = 0.0001
 
+GLOBAL_FACTORIZATION_MAX_ITER = 200
+
 ###################################################################
 
 if not os.path.exists(FILE_DIR):
@@ -119,8 +121,12 @@ class MATRI(object):
         # Initializing the weight vectors
         self.alpha = np.array([1,1,1])
         self.beta = np.zeros((1, 4 * self.t - 1))
-        self._oldF = self.F = np.zeros((data.num_nodes, self.l))
-        self._oldG = self.G = np.zeros((self.l, data.num_nodes))
+
+        self.F = np.zeros((data.num_nodes, self.l))
+        self._oldF = np.zeros((data.num_nodes, self.l))
+        self.G = np.zeros((data.num_nodes, self.l))
+        self._oldG = np.zeros((data.num_nodes, self.l))
+        #self._oldG = self.G = np.zeros((self.l, data.num_nodes))
 
     
     def alternatinUpdate(self, P, F, G, r):
@@ -148,6 +154,7 @@ class MATRI(object):
 
     def mat_fact(self, X, r):
         """ Factorization code from the paper
+            Returns:    dim(F) = nxr  || dim(G.T) = nxr
         """
         log.updateMSG("Factorizing the matrices")
         F0 = np.random.rand(self.T.shape[0], r)
@@ -165,18 +172,22 @@ class MATRI(object):
             else:
                 self.d[i].append(j)
         iter = 1
-        MAX_ITER = 200
-        F = self.alternatinUpdate(X, F0, G0, r)
-        G = self.alternatinUpdate(X.T, G0, F, r)
-        while norm(F - F0) > GLOBAL_EPS and norm(G - G0) > GLOBAL_EPS:
-             if iter > MAX_ITER:
-                return F, G
-             F0[:] = F[:]
-             G0[:] = G[:]
-             F = self.alternatinUpdate(X, F0, G0, r)
-             G = self.alternatinUpdate(X.T, G0, F, r)
-             iter += 1
-        return F, G
+        while iter < GLOBAL_FACTORIZATION_MAX_ITER:
+            F = self.alternatinUpdate(X, F0, G0, r)
+            G = self.alternatinUpdate(X.T, G0, F, r)
+
+            if iter == 1:
+                iter += 1
+                F0[:] = F[:]
+                G0[:] = G[:]
+                continue
+
+            if norm(F - F0) <= GLOBAL_EPS and norm(G - G0) <= GLOBAL_EPS:
+                break
+            F0[:] = F[:]
+            G0[:] = G[:]
+            iter += 1
+        return F0, G0
     
 
     def calcZ(self, start, end, total):
@@ -223,8 +234,8 @@ class MATRI(object):
         """ Calculate the successive NORM b/w self.F and self.G
         """
         log.updateMSG("Calculating NORM.")
-        E1 = np.absolute(norm(self.F) - norm(self._oldF))
-        E2 = np.absolute(norm(self.G) - norm(self._oldG))
+        E1 = norm(self.F - self._oldF)
+        E2 = norm(self.G - self._oldG)
 
         # Copy the successive F and G for next iteration.
         self._oldF = copy.deepcopy(self.F)
