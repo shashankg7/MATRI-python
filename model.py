@@ -32,8 +32,9 @@ FILE_RMSE = FILE_DIR + "RMSE"
 
 # GLOBAL_EPS = np.finfo(float).eps
 GLOBAL_EPS = 0.0001
-
 GLOBAL_FACTORIZATION_MAX_ITER = 200
+
+RANDOM_SEED_FACTORIZATION = 42
 
 ###################################################################
 
@@ -42,6 +43,8 @@ if not os.path.exists(FILE_DIR):
 
 from utils import log as logger
 log = logger()
+
+np.random.seed(RANDOM_SEED_FACTORIZATION)
 
 
 
@@ -304,6 +307,7 @@ class MATRI(object):
 
         # Save all the RMSE to plot the graph
         np.save(FILE_RMSE, np.asarray(RMSE))
+        log.nextLine()
 
 
     def join_zij(self):

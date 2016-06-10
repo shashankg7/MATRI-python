@@ -7,7 +7,7 @@ class log:
     def __init__(self):
         self.head = None
         self.msg = None
-        self.__buff = " "*40
+        self.__buff = " "*50
 
     def updateHEAD(self, s):
         self.head = s
