@@ -51,6 +51,19 @@ class MATRI(object):
         self.r = GLOBAL_r
         self.l = GLOBAL_l
         self.T, self.mu, self.x, self.y, self.k, self.deleted_edges, self.node_to_index, self.rating_map  = data.load_data()
+
+        # Compute deleted_k, i.e. all the ordered trust pairs in the test dataset
+        # (u, v, r) :: (trustor(from), trustee(to), rating)
+        self.deleted_k = []
+        deleted_nodes = self.deleted_edges.keys()
+        for i, node in enumerate(deleted_nodes):
+            edge_list = self.deleted_edges[node]
+            for user in edge_list:
+                u = self.node_to_index[node]
+                v = self.node_to_index[user]
+                r = self.rating_map[edge_list[user]['level']]
+                self.deleted_k.append((u,v,r))
+
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
         #self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
 
@@ -292,14 +305,8 @@ class MATRI(object):
             Zij = np.load(FILE_Z + ".npy")
         else:
             # Copy Test-Zij
-            ind = 1
-            deleted_nodes = self.deleted_edges.keys()
-            for i, node in enumerate(deleted_nodes):
-                edge_list = self.deleted_edges[node]
-                for user in edge_list:
-                    u = self.node_to_index[node]
-                    v = self.node_to_index[user]
-                    Zij[u,v] = self.Zij_test[u,v]
+            for ind, (i,j,r) in enumerate(self.deleted_k):
+                Zij[i,j] = self.Zij_test[i,j]
 
             # Copy Train-Zij
             for ind, (i,j) in enumerate(self.k):
@@ -318,17 +325,10 @@ class MATRI(object):
             log.updateHEAD("Loading TEST-Zij from: %s.npy" % ( FILE_Z_test))
             Zij = np.load(FILE_Z_test + ".npy")
         else:
-            ind = 1
-            deleted_nodes = self.deleted_edges.keys()
-            for i, node in enumerate(deleted_nodes):
-                edge_list = self.deleted_edges[node]
-                for user in edge_list:
-                    u = self.node_to_index[node]
-                    v = self.node_to_index[user]
-               
-                    log.updateMSG("Computing %dth Zij matrices. | TEST_DATASET" %(ind))
-                    Zij[u,v] = data.compute_prop(self.T, self.t, self.l, u, v)
-                    ind += 1
+            for ind, (i,j,r) in enumerate(self.deleted_k):
+                log.updateMSG("Computing %dth Zij matrices. | TEST_DATASET" %(ind))
+                Zij[i,j] = data.compute_prop(self.T, self.t, self.l, i, j)
+                ind += 1
             np.save(FILE_Z_test, Zij)
         return Zij
 
@@ -359,19 +359,13 @@ class MATRI(object):
         log.updateMSG("Calculating Trust values for TEST-dataset")
         self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
 
-        deleted_nodes = self.deleted_edges.keys()
-        for i, node in enumerate(deleted_nodes):
-            edge_list = self.deleted_edges[node]
-            for user in edge_list:
-                u = self.node_to_index[node]
-                v = self.node_to_index[user]
-               
-                # Used self.Z[u,v] instead of self.Z[u,v].T, as numpy gives transpose of the 1-d array as the array itself.
-                # Use G[v,:] instead of transpose
-                A = np.dot(self.F[u,:], self.G[v,:])
-                B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
-                C = np.dot(self.beta, self.Zij[u,v].T)
-                self.Tnew[u,v] = A + B + C
+        for ind, (u,v,r) in enumerate(self.deleted_k):
+            # Used self.Z[u,v] instead of self.Z[u,v].T, as numpy gives transpose of the 1-d array as the array itself.
+            # Use G[v,:] instead of transpose
+            A = np.dot(self.F[u,:], self.G[v,:])
+            B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
+            C = np.dot(self.beta, self.Zij[u,v].T)
+            self.Tnew[u,v] = A + B + C
 
 
 
@@ -407,16 +401,11 @@ class MATRI(object):
         log.updateMSG("Calculating RMSE on the TEST-dataset.")
         tvalue_test = np.array([])
         tvalue_train = np.array([])
-        deleted_nodes = self.deleted_edges.keys()
-        for i, node in enumerate(deleted_nodes):
-            edge_list = self.deleted_edges[node]
-            for user in edge_list:
-                n1 = self.node_to_index[node]
-                n2 = self.node_to_index[user]
-                # n1 and n2 are the final user indices used in the matrix
 
-                tvalue_test = np.append(tvalue_test, self.rating_map[edge_list[user]['level']])
-                tvalue_train = np.append(tvalue_train, self.Tnew[n1][n2])
+        for ind, (n1,n2,r) in enumerate(self.deleted_k):
+            tvalue_test = np.append(tvalue_test, r)
+            tvalue_train = np.append(tvalue_train, self.Tnew[n1][n2])
+
         R = np.sqrt(np.mean(np.square(np.subtract(tvalue_test, tvalue_train))))
         log.updateMSG("RMSE (on TEST-dataset): %f" %(R))
         return R
