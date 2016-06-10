@@ -1,4 +1,3 @@
-
 import networkx as nx
 from scipy.io import savemat
 import json
@@ -183,7 +182,7 @@ class data_handler(object):
         return T, mu, x, y, k, deleted_edges, node_to_index, rating_map
 
 if __name__ == "__main__":
-    data = data_handler("data/advogato-graph-2011-06-23.dot",5)
+    data = data_handler("dataset/advogato-graph-2011-06-23.dot",5)
     t = datetime.now()
     T, mu, x, y, k = data.load_data()
     t = (datetime.now() - t).total_seconds()

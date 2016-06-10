@@ -1,34 +1,64 @@
 from __future__ import print_function
 import numpy as np
 from numpy.linalg import norm
-import pdb
 from sklearn import linear_model
 from sklearn.decomposition import NMF
-from numpy import power
-import time
 from data_handler import data_handler
-import sys, os
-import copy
-import sys,os
-import pymf
-import threading
+import sys, os, copy, sys, pymf, threading, time, pdb
+
+
+###################################################################
+# Parameters
+###################################################################
+
+GLOBAL_t = 6                # Maximum propagation step
+
+GLOBAL_p = 3                # Total number of bias factors
+GLOBAL_r = 10               # Total number latent factors
+GLOBAL_l = 10               # ??
+
+GLOBAL_max_itr = 1000       # Max itreration untill convergence.
+
+GLOBAL_lamda = 0.1         # Regularization parameter for parameter updation.
+
+
+# Names of Files for saving
+FILE_DIR = "Saved/"
+
+FILE_Z_train = FILE_DIR + "Z_train"
+FILE_Z_test = FILE_DIR + "Z_test"
+FILE_Z = FILE_DIR + "Z_full"
+FILE_RMSE = FILE_DIR + "RMSE"
+
+# GLOBAL_EPS = np.finfo(float).eps
+GLOBAL_EPS = 0.0001
+
+###################################################################
+
+if not os.path.exists(FILE_DIR):
+    os.makedirs(FILE_DIR)
+
+from utils import log as logger
+log = logger()
+
 
 
 class MATRI(object):
-    def __init__(self, t, r, l, max_itr):
-        print("Initializing MATRI...")
-        self.max_iter = max_itr
-        self.t = t
-        self.r = r
-        self.l = l
+    def __init__(self):
+        log.updateHEAD("Initializing MATRI...")
+        self.max_iter = GLOBAL_max_itr
+        self.t = GLOBAL_t
+        self.r = GLOBAL_r
+        self.l = GLOBAL_l
         self.T, self.mu, self.x, self.y, self.k, self.deleted_edges, self.node_to_index, self.rating_map  = data.load_data()
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
-        self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
+        #self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
 
-        file_name = "Z_train"
-        if os.path.isfile(file_name + ".npy"):
-            print("Loading Z from: " + file_name + ".npy")
-            self.Z = np.load(file_name + ".npy")
+        self.__iter = 1
+
+        if os.path.isfile(FILE_Z_train + ".npy"):
+            log.updateHEAD("Loading Z from: %s.npy" %(FILE_Z_train))
+            self.Z = np.load(FILE_Z_train + ".npy")
         else:
 
             # THREADING MODULE
@@ -65,14 +95,13 @@ class MATRI(object):
             #     print('Volla!! Threading says welcome')
 
 
-            print("Precomputing Zij....")
+            log.updateHEAD("Precomputing Zij:")
             for ind, (i,j) in enumerate(self.k):
-                print("\rComputing " + str(ind+1) + " of " + str(len(self.k)) + " Zij matrices.",end="")
-                sys.stdout.flush()
+                log.updateMSG("Computing %d/%d Zij matrices." %(ind+1, len(self.k)))
                 self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
-                self.Zt[ind] = self.Z[ind].T
-            print("\n")
-            np.save(file_name, self.Z)
+                #self.Zt[ind] = self.Z[ind].T
+            #log.nextLine()
+            np.save(FILE_Z_train, self.Z)
 
         # Initializing the weight vectors
         self.alpha = np.array([1,1,1])
@@ -85,7 +114,6 @@ class MATRI(object):
         """ Factorize the given matrix using the alternatingUpdate algorithm
             mentioned in MATRI-report
         """
-        lamda = 0.05
         F1 = copy.deepcopy(F)
         for i in self.d.keys():
             # set of column indices
@@ -99,7 +127,7 @@ class MATRI(object):
             # d = self.T[i, a]
             # 1[xrange(len(a)), :] = G[a,:]
             # TO-DO: Use sklearn's regression to find F1[i, :] instead
-            temp = np.linalg.inv((np.dot(G1.T, G1) + lamda * np.eye(r)))
+            temp = np.linalg.inv((np.dot(G1.T, G1) + GLOBAL_lamda * np.eye(r)))
             F1[i, :] = np.dot(np.dot(temp, G1.T), d).reshape(r,)
 
         return F1
@@ -108,14 +136,13 @@ class MATRI(object):
     def mat_fact(self, X, r):
         """ Factorization code from the paper
         """
-        print("Factorizing the matrices")
+        log.updateMSG("Factorizing the matrices")
         F0 = np.random.rand(self.T.shape[0], r)
         G0 = np.random.rand(self.T.shape[0], r)
         #F0 = np.zeros((self.T.shape[0], r))
         #G0 = np.zeros((self.T.shape[0], r))
         #F0[:] = 1/float(r)
         #G0[:] = 1/float(r)
-        EPS = 0.0001
         # pre-process self.k for alternatingUpate
         self.d = {}
         for i,j in self.k:
@@ -128,7 +155,7 @@ class MATRI(object):
         MAX_ITER = 200
         F = self.alternatinUpdate(X, F0, G0, r)
         G = self.alternatinUpdate(X.T, G0, F, r)
-        while norm(F - F0) > EPS and norm(G - G0) > EPS:
+        while norm(F - F0) > GLOBAL_EPS and norm(G - G0) > GLOBAL_EPS:
              if iter > MAX_ITER:
                 return F, G
              F0[:] = F[:]
@@ -146,7 +173,7 @@ class MATRI(object):
             if ind >= start and ind < end and ind < total:
                 count += 1
                 self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
-                self.Zt[ind] = self.Z[ind].T
+                #self.Zt[ind] = self.Z[ind].T
         n = threading.currentThread().getName()
         self.threads[int(n)] = count
 
@@ -155,6 +182,7 @@ class MATRI(object):
         """ Update the Alpha and Beta weight vectors after each iteration
         """
 
+        log.updateMSG("Updating the Alpha AND Beta weight vectors")
         b = np.zeros((len(self.k)))
         for ind, (i, j) in enumerate(self.k):
             b[ind] = P[i, j]
@@ -164,11 +192,10 @@ class MATRI(object):
         for ind,(i,j) in enumerate(self.k):
             A[ind,1] = self.x[i]
             A[ind,2] = self.y[j]
-            # Check dimension of Zt vs A[:,:,4:]
+            # Dimension of Zt vs A[:,:,4:]
             # dim(Z[i,j]) = (1,4t-1)
             # dim(A[i,j]) = (1,4t+2)
             # and we skip the 1st 3 rows of A, therefore A's dimension available: (1,4t-1)
-            # Check once. Seems good i guess?
             A[ind,3:] = self.Z[ind,:,:]
         clf = linear_model.Ridge(alpha = 0.1)
         clf.fit(A, b)
@@ -178,32 +205,42 @@ class MATRI(object):
         self.alpha, self.beta = np.split(clf.coef_, [3])    # Split the matrix into concat of Alpha and Beta
 
 
-    def converge(self, iterNO):
-        """ Returns True if Converged, else return False """
-        # Max iterations reached
-        if iterNO >= self.max_iter:
-            return True
 
-        # Convergence is reached
-        # EPS = np.finfo(float).eps
-        EPS = 0.000001
+    def calc_successive_NORM(self):
+        """ Calculate the successive NORM b/w self.F and self.G
+        """
+        log.updateMSG("Calculating NORM.")
         E1 = np.absolute(norm(self.F) - norm(self._oldF))
         E2 = np.absolute(norm(self.G) - norm(self._oldG))
-        if E1 < EPS and E2 < EPS:
-            if iterNO != 0:   # Skip for the 1st iteration
-                print("\rIteration: %d FinalError: (%f, %f) EPS:%f" %(iterNO, E1, E2, EPS))
-                return True
 
         # Copy the successive F and G for next iteration.
         self._oldF = copy.deepcopy(self.F)
         self._oldG = copy.deepcopy(self.G)
-        print("\rIteration: %d FinalError: (%f, %f) EPS:%f" %(iterNO, E1, E2, EPS))
+        return E1, E2
+
+    def is_converged(self, E1, E2, rmse):
+        """ Returns True if Converged, else return False """
+
+        # Skip for the 1st iteration
+        if self.__iter is None:
+            self.__iter = 1
+
+        # Max iterations reached
+        if self.__iter >= self.max_iter:
+            return True
+
+        # Update the iteration number
+        self.__iter += 1
+
+        log.updateMSG("MatrixConvergence: (%f, %f) || RMSE: %f" %(E1, E2, rmse))
+        if E1 < GLOBAL_EPS and E2 < GLOBAL_EPS:
+            return True
         return False
 
 
     def startMatri(self):
         """ Start the main MATRI algorithm """
-        print(">> Starting MATRI")
+        log.updateHEAD("Starting MATRI")
         P = np.zeros(self.T.shape)
         
         RMSE = []
@@ -214,12 +251,11 @@ class MATRI(object):
         # Join zij_test & zij_train
         self.Zij = self.join_zij()
 
-        iter = 1
-        while not self.converge(iter-1):
-            print("Iteration: ",iter, end="")
+        while True:
+            log.updateHEAD("Iteration: %d" % (self.__iter))
             for ind,(i,j) in enumerate(self.k):
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
-                        np.dot(self.beta, self.Zt[ind]))
+                        np.dot(self.beta, self.Z[ind].T))
 
             #self.F, self.G = data.mat_fact(P, self.r)                  # So using pymf factorization
             self.F, self.G = self.mat_fact(P, self.r)                   # Factorization mentioned in the paper
@@ -230,15 +266,20 @@ class MATRI(object):
 
             # Update Alpha & Beta vectors
             self.updateCoeff(P)
-            if not iter%1:
+
+            # Calculate convergence & RMSE
+            _E1, _E2 = self.calc_successive_NORM()
+            if not self.__iter % 1:
                 self.calcTrust_test()
-                R = self.RMSE_test()
-                print("RMSE after %d epoch is (on training) %f" %(iter, R))
-                RMSE.append(R)
-            iter += 1
+                _R = self.RMSE_test()
+                RMSE.append(_R)
+            else:
+                _R = -1
+            if self.is_converged(_E1, _E2, _R):
+                break
 
         # Save all the RMSE to plot the graph
-        np.save('RMSE', np.asarray(RMSE))
+        np.save(FILE_RMSE, np.asarray(RMSE))
 
 
     def join_zij(self):
@@ -246,10 +287,9 @@ class MATRI(object):
             from the Test-Zij and Train-ij
         """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
-        file2 = "Zij_all_save"
-        if os.path.isfile(file2 + ".npy"):
-            print("Loading FULL-Zij from: " + file2 + ".npy")
-            Zij = np.load(file2 + ".npy")
+        if os.path.isfile(FILE_Z + ".npy"):
+            log.updateHEAD("Loading FULL-Zij from: %s.npy" %(FILE_Z))
+            Zij = np.load(FILE_Z + ".npy")
         else:
             # Copy Test-Zij
             ind = 1
@@ -266,7 +306,7 @@ class MATRI(object):
                 Zij[i,j] = self.Z[ind]
 
             # Grab whatever you can !! (Save to file)
-            np.save(file2, Zij)
+            np.save(FILE_Z, Zij)
         return Zij
 
     def compute_zij_test(self):
@@ -274,10 +314,9 @@ class MATRI(object):
             from the test_dataset.
         """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
-        file2 = "Zij_test"
-        if os.path.isfile(file2 + ".npy"):
-            print("Loading TEST-Zij from: " + file2 + ".npy")
-            Zij = np.load(file2 + ".npy")
+        if os.path.isfile(FILE_Z_test + ".npy"):
+            log.updateHEAD("Loading TEST-Zij from: %s.npy" % ( FILE_Z_test))
+            Zij = np.load(FILE_Z_test + ".npy")
         else:
             ind = 1
             deleted_nodes = self.deleted_edges.keys()
@@ -287,11 +326,10 @@ class MATRI(object):
                     u = self.node_to_index[node]
                     v = self.node_to_index[user]
                
+                    log.updateMSG("Computing %dth Zij matrices. | TEST_DATASET" %(ind))
                     Zij[u,v] = data.compute_prop(self.T, self.t, self.l, u, v)
                     ind += 1
-                    print("\rComputing (" + str(ind) + ")th Zij matrices. | TEST_DATASET",end="")
-            print("\n")
-            np.save(file2, Zij)
+            np.save(FILE_Z_test, Zij)
         return Zij
 
 
@@ -299,10 +337,9 @@ class MATRI(object):
         """ Computes the FULL-Zij on all n^2 values
         """
         Zij = np.zeros((data.num_nodes, data.num_nodes, 1, 4*self.t-1))
-        file2 = "Zij_all_save"
-        if os.path.isfile(file2 + ".npy"):
-            print("Loading FULL-Zij from: " + file2 + ".npy")
-            Zij = np.load(file2 + ".npy")
+        if os.path.isfile(FILE_Z + ".npy"):
+            log.updateHEAD("Loading FULL-Zij from: %s.npy" %(FILE_Z))
+            Zij = np.load(FILE_Z + ".npy")
         else:
             ind = 1
             total = data.num_nodes*data.num_nodes
@@ -310,15 +347,16 @@ class MATRI(object):
                 for j in range(0, data.num_nodes):
                     Zij[i,j] = data.compute_prop(self.T, self.t, self.l, i, j)
                     ind += 1
-                    print("\rComputing " + str(ind) + " of " + str(total) + " Zij matrices.",end="")
-            print("\n")
-            np.save(file2, Zij)
+                    log.updateMSG("Computing %d/%d Zij matrices." %(ind, total))
+            np.save(FILE_Z, Zij)
         return Zij
 
 
 
     def calcTrust_test(self):
         """ Calculate final trust values for (u,v) belongs to test-dataset """
+
+        log.updateMSG("Calculating Trust values for TEST-dataset")
         self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
 
         deleted_nodes = self.deleted_edges.keys()
@@ -356,13 +394,17 @@ class MATRI(object):
     def RMSE(self):
         """ Calculate RMSE b/w the trust matrices
         """
-        return np.sqrt(np.mean((self.Tnew-self.T)**2))
+        log.updateMSG("Calculating RMSE on the FULL-dataset.")
+        R = np.sqrt(np.mean((self.Tnew-self.T)**2))
+        log.updateMSG("RMSE (on FULL-dataset): %f" %(R))
+        return R
 
 
 
     def RMSE_test(self):
         """ Calculate RMSE only on the test data, i.e 500 edges
         """
+        log.updateMSG("Calculating RMSE on the TEST-dataset.")
         tvalue_test = np.array([])
         tvalue_train = np.array([])
         deleted_nodes = self.deleted_edges.keys()
@@ -375,15 +417,12 @@ class MATRI(object):
 
                 tvalue_test = np.append(tvalue_test, self.rating_map[edge_list[user]['level']])
                 tvalue_train = np.append(tvalue_train, self.Tnew[n1][n2])
-        return np.sqrt(np.mean(np.square(np.subtract(tvalue_test, tvalue_train))))
-
+        R = np.sqrt(np.mean(np.square(np.subtract(tvalue_test, tvalue_train))))
+        log.updateMSG("RMSE (on TEST-dataset): %f" %(R))
+        return R
 
 
 if __name__ == "__main__":
-    t = 6
-    r = 10
-    l = 10
-    max_itr = 1000
-    data = data_handler("data/advogato-graph-2000-02-25.dot", t)
-    m = MATRI(t, r, l, max_itr)
+    data = data_handler("dataset/advogato-graph-2000-02-25.dot", GLOBAL_t)
+    m = MATRI()
     m.startMatri()
