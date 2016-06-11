@@ -4,6 +4,7 @@ from numpy.linalg import norm
 from sklearn import linear_model
 from sklearn.decomposition import NMF
 from data_handler import data_handler
+from datetime import datetime
 import sys, os, copy, sys, pymf, threading, time, pdb
 
 
@@ -114,10 +115,19 @@ class MATRI(object):
 
 
             log.updateHEAD("Precomputing Zij:")
+            _total = len(self.k)
+            _estimated_time_left = " ------------- "
+            _time = datetime.now()
             for ind, (i,j) in enumerate(self.k):
-                log.updateMSG("Computing %d/%d Zij matrices." %(ind+1, len(self.k)))
+                log.updateMSG("Computing %d/%d Zij matrices.        || Estimated Time Left: %s" %(ind+1, len(self.k), _estimated_time_left))
                 self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
                 #self.Zt[ind] = self.Z[ind].T
+
+                # Just estimate the remaining time
+                m, s = divmod((((datetime.now() - _time).total_seconds())*(_total - ind - 1)) / (ind + 1), 60)
+                h, m = divmod(m, 60)
+                _estimated_time_left = "%d hours %02d minutes %02d seconds" % (h, m, s)
+
             #log.nextLine()
             np.save(FILE_Z_train, self.Z)
 
