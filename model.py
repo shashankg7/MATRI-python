@@ -1,9 +1,9 @@
-from __future__ import print_function
+from __future__ import print_function, division
 import numpy as np
 from numpy.linalg import norm
 from sklearn import linear_model
 from sklearn.decomposition import NMF
-from data_handler import data_handler
+from handler import data_handler
 from datetime import datetime
 import sys, os, copy, sys, pymf, threading, time, pdb
 
@@ -12,15 +12,17 @@ import sys, os, copy, sys, pymf, threading, time, pdb
 # Parameters
 ###################################################################
 
+DATASET_NAME = "dataset/advogato-graph-2011-06-23.dot"
+
 GLOBAL_t = 6                # Maximum propagation step
 
 GLOBAL_p = 3                # Total number of bias factors
 GLOBAL_r = 10               # Total number latent factors
 GLOBAL_l = 10               # ??
 
-GLOBAL_max_itr = 1000       # Max itreration untill convergence.
+GLOBAL_max_itr = 20       # Max itreration untill convergence.
 
-GLOBAL_lamda = 0.1         # Regularization parameter for parameter updation.
+GLOBAL_lamda = 1.0         # Regularization parameter for parameter updation.
 
 
 # Names of Files for saving
@@ -170,8 +172,10 @@ class MATRI(object):
             Returns:    dim(F) = nxr  || dim(G.T) = nxr
         """
         log.updateMSG("Factorizing the matrices")
-        F0 = np.random.rand(self.T.shape[0], r)
-        G0 = np.random.rand(self.T.shape[0], r)
+        F0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], r))
+        G0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], r))
+        #F0 = np.random.rand(self.T.shape[0], r)
+        #G0 = np.random.rand(self.T.shape[0], r)
         #F0 = np.zeros((self.T.shape[0], r))
         #G0 = np.zeros((self.T.shape[0], r))
         #F0[:] = 1/float(r)
@@ -186,6 +190,7 @@ class MATRI(object):
                 self.d[i].append(j)
         iter = 1
         while iter < GLOBAL_FACTORIZATION_MAX_ITER:
+            log.updateMSG("Factorizing the matrices:    Iter: %d/%d" %(iter, GLOBAL_FACTORIZATION_MAX_ITER))
             F = self.alternatinUpdate(X, F0, G0, r)
             G = self.alternatinUpdate(X.T, G0, F, r)
 
@@ -437,6 +442,6 @@ class MATRI(object):
 
 
 if __name__ == "__main__":
-    data = data_handler("dataset/advogato-graph-2000-02-25.dot", GLOBAL_t)
+    data = data_handler(DATASET_NAME, GLOBAL_t)
     m = MATRI()
     m.startMatri()

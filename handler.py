@@ -1,3 +1,4 @@
+from __future__ import division
 import networkx as nx
 from scipy.io import savemat
 import json
@@ -156,10 +157,10 @@ class data_handler(object):
         self.num_edges = sum(map(lambda x:len(edges[x].keys()), edges))
         print "Nodes:",self.num_nodes, ", Edges:",self.num_edges
         node_to_index = dict(zip(nodes, range(len(nodes))))
-        #rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
-        #              '"Master"':0.9}
-        rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
-                      'Master':0.9}
+        rating_map = {'"Observer"':0.1, '"Apprentice"':0.4, '"Journeyer"':0.7,
+                      '"Master"':0.9}
+        #rating_map = {'Observer':0.1, 'Apprentice':0.4, 'Journeyer':0.7,
+        #              'Master':0.9}
 
         T = np.zeros((self.num_nodes, self.num_nodes))
         k = []
