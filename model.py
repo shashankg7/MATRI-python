@@ -52,6 +52,7 @@ np.random.seed(RANDOM_SEED_FACTORIZATION)
 
 
 class MATRI(object):
+
     def __init__(self):
         log.updateHEAD("Initializing MATRI...")
         self.max_iter = GLOBAL_max_itr
@@ -113,7 +114,7 @@ class MATRI(object):
             #     print('Threading value not equal')
             #     exit()
             # else:
-            #     print('Volla!! Threading says welcome')
+            #     print('Threading')
 
 
             log.updateHEAD("Precomputing Zij:")
@@ -169,8 +170,8 @@ class MATRI(object):
             G1t = G1.T
             temp = np.linalg.inv((np.dot(G1t, G1) + GLOBAL_lamda * np.eye(self.r)))
             F1[i, :] = np.dot(np.dot(temp, G1t), d).reshape(self.r,)
-
         return F1
+
 
 
     def mat_fact(self, X):
@@ -195,6 +196,7 @@ class MATRI(object):
         iter = 1
         E1 = -1
         E2 = -1
+
         while iter < GLOBAL_FACTORIZATION_MAX_ITER:
             log.updateMSG("Factorizing the matrices:    Iter: %d/%d    diff_NORM: (%f, %f)" %(iter, GLOBAL_FACTORIZATION_MAX_ITER, E1, E2))
             F = self.alternatinUpdate(X, F0, G0)
@@ -215,6 +217,7 @@ class MATRI(object):
             iter += 1
         return F0, G0
     
+
 
     def calcZ(self, start, end, total):
         """ Used to calculate Z only when we use threading """
