@@ -5,14 +5,14 @@ from sklearn import linear_model
 from sklearn.decomposition import NMF
 from handler import data_handler
 from datetime import datetime
-import sys, os, copy, sys, pymf, threading, time, pdb
-
+import sys, os, copy, sys, threading, time, pdb
+import mat_fact
 
 ###################################################################
 # Parameters
 ###################################################################
 
-DATASET_NAME = "dataset/advogato-graph-2011-06-23.dot"
+DATASET_NAME = "dataset/advogato-graph-2000-02-25.dot"
 
 GLOBAL_t = 6                # Maximum propagation step
 
@@ -20,9 +20,9 @@ GLOBAL_p = 3                # Total number of bias factors
 GLOBAL_r = 10               # Total number latent factors
 GLOBAL_l = 10               # ??
 
-GLOBAL_max_itr = 20       # Max itreration untill convergence.
+GLOBAL_max_itr = 1000       # Max itreration untill convergence.
 
-GLOBAL_lamda = 1.0         # Regularization parameter for parameter updation.
+GLOBAL_lamda = 1.1         # Regularization parameter for parameter updation.
 
 
 # Names of Files for saving
@@ -34,7 +34,7 @@ FILE_Z = FILE_DIR + "Z_full"
 FILE_RMSE = FILE_DIR + "RMSE"
 
 # GLOBAL_EPS = np.finfo(float).eps
-GLOBAL_EPS = 0.0001
+GLOBAL_EPS = 0.000001
 GLOBAL_FACTORIZATION_MAX_ITER = 200
 
 RANDOM_SEED_FACTORIZATION = 42
@@ -141,10 +141,15 @@ class MATRI(object):
         self._oldF = np.zeros((data.num_nodes, self.l))
         self.G = np.zeros((data.num_nodes, self.l))
         self._oldG = np.zeros((data.num_nodes, self.l))
+
+        #self.F = np.random.rand(data.num_nodes, self.l)
+        #self._oldF = np.random.rand(data.num_nodes, self.l)
+        #self.G = np.random.rand(data.num_nodes, self.l)
+        #self._oldG = np.random.rand(data.num_nodes, self.l)
         #self._oldG = self.G = np.zeros((self.l, data.num_nodes))
 
     
-    def alternatinUpdate(self, P, F, G, r):
+    def alternatinUpdate(self, P, F, G):
         """ Factorize the given matrix using the alternatingUpdate algorithm
             mentioned in MATRI-report
         """
@@ -153,46 +158,47 @@ class MATRI(object):
             # set of column indices
             a = self.d[i]
             d = np.zeros((len(a), 1))
-            G1 = np.zeros((len(a), r))
+            G1 = np.zeros((len(a), self.r))
             for j in xrange(len(a)):
-                d[j] = self.T[i, a[j]]
+                d[j] = P[i, a[j]]
                 G1[j, :] = G[a[j], :]
             # Vectorize previous loop
             # d = self.T[i, a]
             # 1[xrange(len(a)), :] = G[a,:]
             # TO-DO: Use sklearn's regression to find F1[i, :] instead
-            temp = np.linalg.inv((np.dot(G1.T, G1) + GLOBAL_lamda * np.eye(r)))
-            F1[i, :] = np.dot(np.dot(temp, G1.T), d).reshape(r,)
+            G1t = G1.T
+            temp = np.linalg.inv((np.dot(G1t, G1) + GLOBAL_lamda * np.eye(self.r)))
+            F1[i, :] = np.dot(np.dot(temp, G1t), d).reshape(self.r,)
 
         return F1
 
 
-    def mat_fact(self, X, r):
+    def mat_fact(self, X):
         """ Factorization code from the paper
             Returns:    dim(F) = nxr  || dim(G.T) = nxr
         """
         log.updateMSG("Factorizing the matrices")
-        F0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], r))
-        G0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], r))
-        #F0 = np.random.rand(self.T.shape[0], r)
-        #G0 = np.random.rand(self.T.shape[0], r)
-        #F0 = np.zeros((self.T.shape[0], r))
-        #G0 = np.zeros((self.T.shape[0], r))
-        #F0[:] = 1/float(r)
-        #G0[:] = 1/float(r)
+        #F0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], self.r))
+        #G0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], self.r))
+        F0 = np.random.rand(self.T.shape[0], self.r)
+        G0 = np.random.rand(self.T.shape[0], self.r)
+        #F0 = np.zeros((self.T.shape[0], self.r))
+        #G0 = np.zeros((self.T.shape[0], self.r))
+        #F0[:] = 1/float(self.r)
+        #G0[:] = 1/float(self.r)
         # pre-process self.k for alternatingUpate
         self.d = {}
         for i,j in self.k:
             if not self.d.has_key(i):
                 self.d[i] = []
-                self.d[i].append(j)
-            else:
-                self.d[i].append(j)
+            self.d[i].append(j)
         iter = 1
+        E1 = -1
+        E2 = -1
         while iter < GLOBAL_FACTORIZATION_MAX_ITER:
-            log.updateMSG("Factorizing the matrices:    Iter: %d/%d" %(iter, GLOBAL_FACTORIZATION_MAX_ITER))
-            F = self.alternatinUpdate(X, F0, G0, r)
-            G = self.alternatinUpdate(X.T, G0, F, r)
+            log.updateMSG("Factorizing the matrices:    Iter: %d/%d    diff_NORM: (%f, %f)" %(iter, GLOBAL_FACTORIZATION_MAX_ITER, E1, E2))
+            F = self.alternatinUpdate(X, F0, G0)
+            G = self.alternatinUpdate(X.T, G0, F)
 
             if iter == 1:
                 iter += 1
@@ -200,7 +206,9 @@ class MATRI(object):
                 G0[:] = G[:]
                 continue
 
-            if norm(F - F0) <= GLOBAL_EPS and norm(G - G0) <= GLOBAL_EPS:
+            E1 = norm(F-F0)
+            E2 = norm(G-G0)
+            if E1 <= GLOBAL_EPS and E2 <= GLOBAL_EPS:
                 break
             F0[:] = F[:]
             G0[:] = G[:]
@@ -299,9 +307,9 @@ class MATRI(object):
                 P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
                         np.dot(self.beta, self.Z[ind].T))
 
-            #self.F, self.G = data.mat_fact(P, self.r)                  # So using pymf factorization
-            self.F, self.G = self.mat_fact(P, self.r)                   # Factorization mentioned in the paper
-
+            #self.F, self.G = data.mat_fact(P, self.r)                          # So using pymf factorization
+            #self.F, self.G = self.mat_fact(P)                                  # Factorization mentioned in the paper
+            self.F, self.G = mat_fact.mat_fact(P, self.r, self.F, self.G)
 
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
