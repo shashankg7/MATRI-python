@@ -10,8 +10,9 @@ class log:
         self.__buff = " "*50
 
     def updateHEAD(self, s):
-        self.head = s
         self.nextLine()
+        self.head = s
+        self.msg = ""
         self.display()
 
     def updateMSG(self, s):

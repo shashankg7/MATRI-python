@@ -6,22 +6,22 @@ import numpy as np
 from sklearn.decomposition import NMF
 import pdb
 
-def ref_mat_fact(X, r):
-    P = T.matrix()
-    ind = T.neq(P, 0).nonzero()
-    #Ind = theano.tensor.matrix(ind[0], ind[1])
-    def step(index_i,index_j, P):
-        return P[index_i, index_j]
+#def ref_mat_fact(X, r):
+#    P = T.matrix()
+#    ind = T.neq(P, 0).nonzero()
+#    #Ind = theano.tensor.matrix(ind[0], ind[1])
+#    def step(index_i,index_j, P):
+#        return P[index_i, index_j]
+#
+#    res, _ = theano.scan(fn=step, sequences=[ind[0], ind[1]], non_sequences=[P])
+#
+#    f = theano.function([P], res)
+#
+#    X = np.array([[1,0,0,1],[-1,0,0,1],[1,1,0,0],[-1,0,0,1]]).astype(np.float32)
+#    print(f(X))
 
-    res, _ = theano.scan(fn=step, sequences=[ind[0], ind[1]], non_sequences=[P])
 
-    f = theano.function([P], res)
-
-    X = np.array([[1,0,0,1],[-1,0,0,1],[1,1,0,0],[-1,0,0,1]]).astype(np.float32)
-    print(f(X))
-
-
-def mat_fact(X, r, W, H):
+def mat_fact_GRAD(X, r):
     X = X.astype(np.float32)
     f = np.random.rand(X.shape[0], r)*0.1
     g = np.random.rand(X.shape[0], r)*0.1
@@ -46,7 +46,6 @@ def mat_fact(X, r, W, H):
     grads = T.grad(loss, params)
     updates = [(param, param - alpha * grad) for param, grad in zip(params, grads)]
     factorize = theano.function([P], loss, updates=updates)
-    print("")
     for i in xrange(100):
         print("\r LOSS:", factorize(X), end="")
         sys.stdout.flush()
@@ -57,10 +56,8 @@ def mat_fact(X, r, W, H):
 
 
 if __name__ == "__main__":
-    #X = np.array([[1,2,4],[0,1,2],[-1,2,4]]).astype(np.float32)
-    #X = np.array([[0,1,1],[1,0,1],[0,0,1]]).astype(np.float32)
     X = np.random.rand(30,30).astype(np.float32)
-    F1, G1  = mat_fact(X,2)
+    F1, G1  = mat_fact_GRAD(X,2)
     model = NMF(n_components=2,init='random')
     F = model.fit_transform(X)
     G = model.components_

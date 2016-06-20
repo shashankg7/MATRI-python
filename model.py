@@ -2,44 +2,21 @@ from __future__ import print_function, division
 import numpy as np
 from numpy.linalg import norm
 from sklearn import linear_model
-from sklearn.decomposition import NMF
 from handler import data_handler
 from datetime import datetime
 import sys, os, copy, sys, threading, time, pdb
-import mat_fact
 
-###################################################################
-# Parameters
-###################################################################
+sys.path.append("./factorization")
+#print(__name__)
+#print(sys.path)
 
-DATASET_NAME = "dataset/advogato-graph-2000-02-25.dot"
+from factorize_GRAD import mat_fact_GRAD
+from factorize_AF import mat_fact_AF
+from factorize_PYMF_SKLEARN import mat_fact_PYMF, mat_fact_SKLEARN
 
-GLOBAL_t = 6                # Maximum propagation step
-
-GLOBAL_p = 3                # Total number of bias factors
-GLOBAL_r = 10               # Total number latent factors
-GLOBAL_l = 10               # ??
-
-GLOBAL_max_itr = 1000       # Max itreration untill convergence.
-
-GLOBAL_lamda = 1.1         # Regularization parameter for parameter updation.
+from globs import *
 
 
-# Names of Files for saving
-FILE_DIR = "Saved/"
-
-FILE_Z_train = FILE_DIR + "Z_train"
-FILE_Z_test = FILE_DIR + "Z_test"
-FILE_Z = FILE_DIR + "Z_full"
-FILE_RMSE = FILE_DIR + "RMSE"
-
-# GLOBAL_EPS = np.finfo(float).eps
-GLOBAL_EPS = 0.000001
-GLOBAL_FACTORIZATION_MAX_ITER = 200
-
-RANDOM_SEED_FACTORIZATION = 42
-
-###################################################################
 
 if not os.path.exists(FILE_DIR):
     os.makedirs(FILE_DIR)
@@ -74,7 +51,6 @@ class MATRI(object):
                 self.deleted_k.append((u,v,r))
 
         self.Z = np.zeros((len(self.k), 1, 4*self.t-1))
-        #self.Zt = np.zeros((len(self.k), 4*self.t-1, 1))
 
         self.__iter = 1
 
@@ -82,48 +58,17 @@ class MATRI(object):
             log.updateHEAD("Loading Z from: %s.npy" %(FILE_Z_train))
             self.Z = np.load(FILE_Z_train + ".npy")
         else:
-
-            # THREADING MODULE
-            # The Z array is not matching when calculated using threading, probably some issue with concurrency
-
-            # THREADS=5
-            # self.threads = [0 for i in range(THREADS)]
-            # total = len(self.k)
-            # each = total/THREADS
-            # for t in range(0, THREADS):
-            #     start = t*each
-            #     end = (t+1)*each
-            #     if t == THREADS - 1:
-            #         end = total
-            #     a = threading.Thread(name=str(t), target=self.calcZ, args=(start, end, total))
-            #     a.setDaemon(True)
-            #     a.start()
-
-            # # JOIN ALL THREADS
-            # main_thread = threading.currentThread()
-            # for t in threading.enumerate():
-            #     if t is main_thread:
-            #         continue
-            #     t.join()
-            #     print('A thread ends')
-            # # Check sum
-            # s = 0
-            # for i in self.threads:
-            #     s += i
-            # if s != total:
-            #     print('Threading value not equal')
-            #     exit()
-            # else:
-            #     print('Threading')
-
-
             log.updateHEAD("Precomputing Zij:")
+            #L, R = mat_fact_PYMF(self.T, self.l)
+            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
+            #L, R = mat_fact_GRAD(T, l)
+
             _total = len(self.k)
             _estimated_time_left = " ------------- "
             _time = datetime.now()
             for ind, (i,j) in enumerate(self.k):
                 log.updateMSG("Computing %d/%d Zij matrices.        || Estimated Time Left: %s" %(ind+1, len(self.k), _estimated_time_left))
-                self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
+                self.Z[ind] = data.compute_prop(L, R, self.t, self.l, i, j)
                 #self.Zt[ind] = self.Z[ind].T
 
                 # Just estimate the remaining time
@@ -131,7 +76,6 @@ class MATRI(object):
                 h, m = divmod(m, 60)
                 _estimated_time_left = "%d hours %02d minutes %02d seconds" % (h, m, s)
 
-            #log.nextLine()
             np.save(FILE_Z_train, self.Z)
 
         # Initializing the weight vectors
@@ -149,83 +93,18 @@ class MATRI(object):
         #self._oldG = np.random.rand(data.num_nodes, self.l)
         #self._oldG = self.G = np.zeros((self.l, data.num_nodes))
 
-    
-    def alternatinUpdate(self, P, F, G):
-        """ Factorize the given matrix using the alternatingUpdate algorithm
-            mentioned in MATRI-report
-        """
-        F1 = copy.deepcopy(F)
-        for i in self.d.keys():
-            # set of column indices
-            a = self.d[i]
-            d = np.zeros((len(a), 1))
-            G1 = np.zeros((len(a), self.r))
-            for j in xrange(len(a)):
-                d[j] = P[i, a[j]]
-                G1[j, :] = G[a[j], :]
-            # Vectorize previous loop
-            # d = self.T[i, a]
-            # 1[xrange(len(a)), :] = G[a,:]
-            # TO-DO: Use sklearn's regression to find F1[i, :] instead
-            G1t = G1.T
-            temp = np.linalg.inv((np.dot(G1t, G1) + GLOBAL_lamda * np.eye(self.r)))
-            F1[i, :] = np.dot(np.dot(temp, G1t), d).reshape(self.r,)
-        return F1
-
-
-
-    def mat_fact(self, X):
-        """ Factorization code from the paper
-            Returns:    dim(F) = nxr  || dim(G.T) = nxr
-        """
-        log.updateMSG("Factorizing the matrices")
-        #F0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], self.r))
-        #G0 = np.random.uniform(low=0.05, high=0.15, size=(self.T.shape[0], self.r))
-        F0 = np.random.rand(self.T.shape[0], self.r)
-        G0 = np.random.rand(self.T.shape[0], self.r)
-        #F0 = np.zeros((self.T.shape[0], self.r))
-        #G0 = np.zeros((self.T.shape[0], self.r))
-        #F0[:] = 1/float(self.r)
-        #G0[:] = 1/float(self.r)
-        # pre-process self.k for alternatingUpate
-        self.d = {}
-        for i,j in self.k:
-            if not self.d.has_key(i):
-                self.d[i] = []
-            self.d[i].append(j)
-        iter = 1
-        E1 = -1
-        E2 = -1
-
-        while iter < GLOBAL_FACTORIZATION_MAX_ITER:
-            log.updateMSG("Factorizing the matrices:    Iter: %d/%d    diff_NORM: (%f, %f)" %(iter, GLOBAL_FACTORIZATION_MAX_ITER, E1, E2))
-            F = self.alternatinUpdate(X, F0, G0)
-            G = self.alternatinUpdate(X.T, G0, F)
-
-            if iter == 1:
-                iter += 1
-                F0[:] = F[:]
-                G0[:] = G[:]
-                continue
-
-            E1 = norm(F-F0)
-            E2 = norm(G-G0)
-            if E1 <= GLOBAL_EPS and E2 <= GLOBAL_EPS:
-                break
-            F0[:] = F[:]
-            G0[:] = G[:]
-            iter += 1
-        return F0, G0
-    
-
 
     def calcZ(self, start, end, total):
         """ Used to calculate Z only when we use threading """
         count = 0
+        
+        L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
+        #L, R = data.mat_fact_pymf(self.T, self.l)
+        
         for ind, (i,j) in enumerate(self.k):
             if ind >= start and ind < end and ind < total:
                 count += 1
-                self.Z[ind] = data.compute_prop(self.T, self.t, self.l, i, j)
+                self.Z[ind] = data.compute_prop(L, R, self.t, self.l, i, j)
                 #self.Zt[ind] = self.Z[ind].T
         n = threading.currentThread().getName()
         self.threads[int(n)] = count
@@ -250,7 +129,7 @@ class MATRI(object):
             # dim(A[i,j]) = (1,4t+2)
             # and we skip the 1st 3 rows of A, therefore A's dimension available: (1,4t-1)
             A[ind,3:] = self.Z[ind,:,:]
-        clf = linear_model.Ridge(alpha = 0.1)
+        clf = linear_model.Ridge(alpha = 1)
         clf.fit(A, b)
 
         # The resultant vector is the concat. of the 2 vectors. Hence we need to split it into vectors,
@@ -295,7 +174,7 @@ class MATRI(object):
         """ Start the main MATRI algorithm """
         log.updateHEAD("Starting MATRI")
         P = np.zeros(self.T.shape)
-        
+
         RMSE = []
 
         # Compute Zij for test data
@@ -307,12 +186,12 @@ class MATRI(object):
         while True:
             log.updateHEAD("Iteration: %d" % (self.__iter))
             for ind,(i,j) in enumerate(self.k):
-                P[i, j] = self.T[i, j] - (np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
-                        np.dot(self.beta, self.Z[ind].T))
+                P[i, j] = self.T[i, j] - np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
+                        np.dot(self.beta, self.Z[ind].T)
 
-            #self.F, self.G = data.mat_fact(P, self.r)                          # So using pymf factorization
-            #self.F, self.G = self.mat_fact(P)                                  # Factorization mentioned in the paper
-            self.F, self.G = mat_fact.mat_fact(P, self.r, self.F, self.G)
+            #self.F, self.G = mat_fact_PYMF(P, self.r)                          # So using pymf factorization
+            self.F, self.G, _d = mat_fact_AF(P, P.shape[0], self.r, self.k)
+            #self.F, self.G = mat_fact_GRAD(P, self.r)
 
             for i,j in self.k:
                 P[i, j] = self.T[i, j] - np.dot(self.F[i, :], self.G[j, :].T)
@@ -366,9 +245,10 @@ class MATRI(object):
             log.updateHEAD("Loading TEST-Zij from: %s.npy" % ( FILE_Z_test))
             Zij = np.load(FILE_Z_test + ".npy")
         else:
+            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
             for ind, (i,j,r) in enumerate(self.deleted_k):
                 log.updateMSG("Computing %dth Zij matrices. | TEST_DATASET" %(ind))
-                Zij[i,j] = data.compute_prop(self.T, self.t, self.l, i, j)
+                Zij[i,j] = data.compute_prop(L, R, self.t, self.l, i, j)
                 ind += 1
             np.save(FILE_Z_test, Zij)
         return Zij
@@ -384,9 +264,10 @@ class MATRI(object):
         else:
             ind = 1
             total = data.num_nodes*data.num_nodes
+            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
             for i in range(0, data.num_nodes):
                 for j in range(0, data.num_nodes):
-                    Zij[i,j] = data.compute_prop(self.T, self.t, self.l, i, j)
+                    Zij[i,j] = data.compute_prop(L, R, self.t, self.l, i, j)
                     ind += 1
                     log.updateMSG("Computing %d/%d Zij matrices." %(ind, total))
             np.save(FILE_Z, Zij)

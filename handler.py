@@ -8,107 +8,62 @@ from sklearn.decomposition import NMF
 from numpy import power
 from datetime import datetime
 import numpy
+from numpy import power
 import pymf
 import os
 import copy
+import sys
 
+sys.path.append("./factorization")
+from factorize_PYMF_SKLEARN import mat_fact_PYMF,  mat_fact_SKLEARN
+from factorize_AF import mat_fact_AF
+from factorize_GRAD import mat_fact_GRAD
 
 class data_handler(object):
     def __init__(self, path, t):
         self.path = path
         self.t = t
 
-    def mat_fact_sklearn(self, X, r):
-        model = NMF(n_components=r, init='nndsvda', alpha=0.001)
-        L = model.fit_transform(X)
-        H = model.components_
-        return L, H.T
-
-
-    def mat_fact(self, X, r):
-        """ X - matrix, l - latent factors
-            Returns 2 factors of X, such that, dim(L) = n x r
-                                               dim(R.T) = r x n
-        """
-        # ISSUE : sklearn's NMF accepts only non-neg matrices.
-        # model = NMF(n_components=l, init='random', random_state=0)
-        # L = model.fit_transform(X)
-        # R = model.components_
-
-        # Using pymf factorization
-        nmf = pymf.NMF(X, num_bases=r)#, niter=200)
-        nmf.factorize()
-        L = nmf.W
-        R = nmf.H
-        return L, R.T
-
-    def mat_fact_ALS(self, R, K):
-        N = R.shape[0]
-        P = np.random.rand(N, K)
-        Q = np.random.rand(N, K)
-        Q = Q.T
-        steps = 200
-        alpha = 0.0002
-        beta = 0.02
-        indices = np.where(R > 0)
-        for step in xrange(steps):
-            for i in indices[0]:
-                for j in indices[1]:
-                    if R[i][j] > 0:
-                        eij = R[i][j] - numpy.dot(P[i,:],Q[:,j])
-                        for k in xrange(K):
-                            P[i][k] = P[i][k] + alpha * (2 * eij * Q[k][j] - beta * P[i][k])
-                            Q[k][j] = Q[k][j] + alpha * (2 * eij * P[i][k] - beta * Q[k][j])
-            eR = numpy.dot(P,Q)
-            e = 0
-            for i in xrange(len(R)):
-                for j in xrange(len(R[i])):
-                    if R[i][j] > 0:
-                        e = e + pow(R[i][j] - numpy.dot(P[i,:],Q[:,j]), 2)
-                        for k in xrange(K):
-                            e = e + (beta/2) * ( pow(P[i][k],2) + pow(Q[k][j],2) )
-            if e < 0.001:
-                break
-        return P, Q.T
-
-    def mat_pow(self, X, i):
-        return power(X, i)
-
     def a2v(self, x):
         # Converts array of size (n,) to row vector - (1,n)
         return x.reshape(1, x.size)
 
-    def compute_prop(self, T, t, l, i, j):
-        L, R = self.mat_fact(T, l)
+    def compute_prop(self, L, R, t, l, i, j):
+        #L, R = mat_fact_pymf(T, l)
+        #L, R, _d = mat_fact_AF(T, l, self.r, self.k)
+        #L, R = mat_fact_grad(T, l)
+        # Pre-compute L & R and pass it here
+
+
         # In paper R is N * L
         zij = []
 
         RtL = np.dot(R.T, L)
         for step in xrange(2, t+1):
-            temp = self.mat_pow(RtL, step-1)
+            temp = power(RtL, step-1)
             zij.append(np.dot(np.dot(self.a2v(L[i,:]), temp), self.a2v(R[j,:]).T))
 
         LtR = np.dot(L.T, R)
         for step in xrange(1, t+1):
-            temp = self.mat_pow(LtR, step-1)
+            temp = power(LtR, step-1)
             zij.append(np.dot(np.dot(self.a2v(R[i,:]), temp), self.a2v(L[j,:]).T))
 
         LtL = np.dot(L.T, L)
         RtR = np.dot(R.T, R)
         for step in xrange(1, t+1):
-            temp = self.mat_pow(np.dot(LtL, RtR), step-1)
+            temp = power(np.dot(LtL, RtR), step-1)
             zij.append(np.dot(np.dot(self.a2v(R[i,:]), temp), np.dot(LtL, self.a2v(R[j, :]).T)))
         for step in xrange(1, t+1):
-            temp = self.mat_pow(np.dot(RtR, LtL), step-1)
+            temp = power(np.dot(RtR, LtL), step-1)
             zij.append(np.dot(np.dot(self.a2v(L[i,:]), temp), np.dot(RtR, self.a2v(L[j, :]).T)))
 
         return np.asarray(zij).reshape(1, 4*t -1)
 
     def load_data(self):
-        graph = nx.Graph(nx.drawing.nx_pydot.read_dot(self.path))
+        graph = nx.DiGraph(nx.drawing.nx_pydot.read_dot(self.path))
         nodes = graph.node.keys()
         edges = copy.deepcopy(graph.edge)
-
+        #pdb.set_trace()
         REDUCE_DATA = True
         KEEP_EDGES = 500
         deleted_edges = {}
@@ -156,7 +111,6 @@ class data_handler(object):
                 with open('data_test.txt', 'w') as f:
                     json.dump(deleted_edges, f)
 
-
             deleted_num_edges = sum(map(lambda x:len(deleted_edges[x].keys()), deleted_edges))
             print('Deleted Edges = %d' %(deleted_num_edges))
 
@@ -181,12 +135,12 @@ class data_handler(object):
         mu /= len(T[np.where(T > 0)])
         x = np.zeros(self.num_nodes)
         y = np.zeros(self.num_nodes)
-        for i in xrange(0, self.num_nodes):
-            x[i] = np.sum(T[i, :]) / len(T[i, np.where(T[i,:] > 0)])
+        for ind, (i,j) in enumerate(k):
+            x[i] = np.sum(T[i, :]) / len(np.where(T[i,:] > 0))
             x[i] -= mu
-            y[i] = np.sum(T[:, i]) / len(T[np.where(T[:, i] > 0), i])
-            y[i] -= mu
-        dp = np.linalg.matrix_power(T, self.t)
+            y[j] = np.sum(T[:, j]) / len(np.where(T[:, j] > 0))
+            y[j] -= mu
+        #dp = np.linalg.matrix_power(T, self.t)
         return T, mu, x, y, k, deleted_edges, node_to_index, rating_map
 
 if __name__ == "__main__":
@@ -195,4 +149,3 @@ if __name__ == "__main__":
     T, mu, x, y, k = data.load_data()
     t = (datetime.now() - t).total_seconds()
     print "Time for pre-processing is %fs"%(t)
-    #pdb.set_trace()
