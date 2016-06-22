@@ -2,7 +2,18 @@
 # Parameters
 ###################################################################
 
-DATASET_NAME = "dataset/advogato-graph-2000-02-25.dot"
+
+###################### DATASETS######################
+
+# DATASET_NAME = "dataset/advogato-graph-2000-02-25.dot"
+# RATING_MAP = {'Observer': 0.1, 'Apprentice': 0.4, 'Journeyer': 0.7,
+#               'Master': 0.9}
+
+DATASET_NAME = "dataset/advogato-graph-2011-06-23.dot"
+RATING_MAP = {'"Observer"': 0.1, '"Apprentice"': 0.4, '"Journeyer"': 0.7,
+              '"Master"': 0.9}
+
+#####################################################
 
 GLOBAL_t = 6                # Maximum propagation step
 
@@ -27,6 +38,6 @@ FILE_RMSE = FILE_DIR + "RMSE"
 GLOBAL_EPS = 0.000001
 GLOBAL_FACTORIZATION_MAX_ITER = 200
 
-RANDOM_SEED_FACTORIZATION = 42
+RANDOM_SEED_FACTORIZATION = 49
 
 ###################################################################
