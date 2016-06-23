@@ -201,7 +201,6 @@ class data_handler(object):
             x[i] -= mu
             y[j] = np.sum(T[:, j]) / len(np.where(T[:, j] > 0))
             y[j] -= mu
-        # dp = np.linalg.matrix_power(T, self.t)
         return T, mu, x, y, k, deleted_edges, node_to_index, self.rating_map
 
 if __name__ == "__main__":

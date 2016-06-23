@@ -57,8 +57,8 @@ class MATRI(object):
             self.Z = np.load(FILE_Z_train + ".npy")
         else:
             log.updateHEAD("Precomputing Zij:")
-            # L, R = mat_fact_PYMF(self.T, self.l)
-            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
+            L, R = mat_fact_PYMF(self.T, self.l)
+            # L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
             #L, R = mat_fact_GRAD(T, l)
 
             _total = len(self.k)
@@ -171,8 +171,8 @@ class MATRI(object):
                 P[i, j] = self.T[i, j] - np.dot(self.alpha, np.asarray([self.mu, self.x[i], self.y[j]]).T) + \
                         np.dot(self.beta, self.Z[ind].T)
 
-            # self.F, self.G = mat_fact_PYMF(P, self.r)                          # So using pymf factorization
-            self.F, self.G, _d = mat_fact_AF(P, P.shape[0], self.r, self.k)
+            self.F, self.G = mat_fact_PYMF(P, self.r)                          # So using pymf factorization
+            # self.F, self.G, _d = mat_fact_AF(P, P.shape[0], self.r, self.k)
             #self.F, self.G = mat_fact_GRAD(P, self.r)
 
             for i,j in self.k:
@@ -228,8 +228,8 @@ class MATRI(object):
             log.updateHEAD("Loading TEST-Zij from: %s.npy" % ( FILE_Z_test))
             Zij = np.load(FILE_Z_test + ".npy")
         else:
-            # L, R = mat_fact_PYMF(self.T, self.l)
-            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
+            L, R = mat_fact_PYMF(self.T, self.l)
+            # L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
             for ind, (i,j,r) in enumerate(self.deleted_k):
                 log.updateMSG("Computing %dth Zij matrices. | TEST_DATASET" %(ind))
                 Zij[i,j] = data.compute_prop(L, R, self.t, self.l, i, j)
@@ -248,8 +248,8 @@ class MATRI(object):
         else:
             ind = 1
             total = data.num_nodes*data.num_nodes
-            # L, R = mat_fact_PYMF(self.T, self.l)
-            L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
+            L, R = mat_fact_PYMF(self.T, self.l)
+            # L, R, _d = mat_fact_AF(self.T, self.T.shape[0], self.l, self.k)
             for i in range(0, data.num_nodes):
                 for j in range(0, data.num_nodes):
                     Zij[i,j] = data.compute_prop(L, R, self.t, self.l, i, j)
@@ -275,32 +275,34 @@ class MATRI(object):
             self.Tnew[u,v] = A + B + C
 
 
-
-    def calcTrust(self):
-        """ Calculate final trust values for all; (u,v) belongs T """
-        self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
-
-        for u in range(0, data.num_nodes):
-            for v in range(0, data.num_nodes):
-                # Used self.Z[u,v] instead of self.Z[u,v].T, due to numpy issues
-                # Use G[v,:] instead of transpose
-                A = np.dot(self.F[u,:], self.G[v,:])
-                #pdb.set_trace()
-                B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
-                C = np.dot(self.beta, self.Zij[u,v].T)
-                self.Tnew[u,v] = A + B + C
-
-
-
-    def RMSE(self):
-        """ Calculate RMSE b/w the trust matrices
-        """
-        log.updateMSG("Calculating RMSE on the FULL-dataset.")
-        R = np.sqrt(np.mean((self.Tnew-self.T)**2))
-        log.updateMSG("RMSE (on FULL-dataset): %f" %(R))
-        return R
-
-
+# NOT USING FOR NOW!
+#######################################
+#
+#    def calcTrust(self):
+#        """ Calculate final trust values for all; (u,v) belongs T """
+#        self.Tnew = np.zeros((data.num_nodes, data.num_nodes))
+#
+#        for u in range(0, data.num_nodes):
+#            for v in range(0, data.num_nodes):
+#                # Used self.Z[u,v] instead of self.Z[u,v].T, due to numpy issues
+#                # Use G[v,:] instead of transpose
+#                A = np.dot(self.F[u,:], self.G[v,:])
+#                #pdb.set_trace()
+#                B = np.dot(self.alpha.T, np.asarray([self.mu, self.x[u], self.y[v]]))
+#                C = np.dot(self.beta, self.Zij[u,v].T)
+#                self.Tnew[u,v] = A + B + C
+#
+#
+#
+#    def RMSE(self):
+#        """ Calculate RMSE b/w the trust matrices
+#        """
+#        log.updateMSG("Calculating RMSE on the FULL-dataset.")
+#        R = np.sqrt(np.mean((self.Tnew-self.T)**2))
+#        log.updateMSG("RMSE (on FULL-dataset): %f" %(R))
+#        return R
+#
+#######################################
 
     def RMSE_test(self):
         """ Calculate RMSE only on the test data, i.e 500 edges
