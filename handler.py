@@ -13,7 +13,11 @@ import io
 from scipy.sparse import coo_matrix
 from scipy.io import savemat
 
-sys.path.append("./factorization")
+CURRENT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)))
+sys.path.append(CURRENT_DIR + "/dataset")
+
+sys.path.append(CURRENT_DIR + "/factorization")
+print(sys.path)
 from factorize_PYMF_SKLEARN import mat_fact_PYMF,  mat_fact_SKLEARN
 from factorize_AF import mat_fact_AF
 from factorize_GRAD import mat_fact_GRAD

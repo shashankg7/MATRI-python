@@ -2,17 +2,21 @@ from __future__ import print_function, division
 import numpy as np
 from numpy.linalg import norm
 from sklearn import linear_model
-from handler import data_handler
 from datetime import datetime
 import sys, os, copy, sys, threading, time, pdb
 
-sys.path.append("./factorization")
 
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__))))
+from handler import data_handler
+
+sys.path.append("./factorization")
 from factorize_GRAD import mat_fact_GRAD
 from factorize_AF import mat_fact_AF
 from factorize_PYMF_SKLEARN import mat_fact_PYMF, mat_fact_SKLEARN
 
 from globs import *
+CURRENT_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__))) + "/"
+DATASET_NAME = CURRENT_DIR + DATASET_NAME
 
 
 if not os.path.exists(FILE_DIR):
@@ -27,7 +31,7 @@ np.random.seed(RANDOM_SEED_FACTORIZATION)
 
 class MATRI(object):
 
-    def __init__(self):
+    def __init__(self, data):
         log.updateHEAD("Initializing MATRI...")
         self.max_iter = GLOBAL_max_itr
         self.t = GLOBAL_t
@@ -320,7 +324,11 @@ class MATRI(object):
         return R
 
 
-if __name__ == "__main__":
+
+def init_main():
     data = data_handler(DATASET_NAME, RATING_MAP, GLOBAL_t)
-    m = MATRI()
+    m = MATRI(data)
     m.startMatri()
+
+if __name__ == "__main__":
+    init_main()
